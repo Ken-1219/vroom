@@ -3,6 +3,7 @@ import { vehicleService } from "@/services/vehicle";
 import { Nav } from "@/components/nav";
 import { VehicleFilters } from "@/components/vehicle-filters";
 import { VehiclesContent } from "@/components/vehicles-content";
+import { NLSearchBar } from "@/components/nl-search-bar";
 import type { VehicleSearchParams } from "@vroom/validators";
 
 const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
@@ -101,6 +102,10 @@ export default async function VehiclesPage({
             {cityName && latitude ? ` within ${radiusKm ?? 50} km` : ""}
           </p>
         </div>
+
+        <Suspense fallback={null}>
+          <NLSearchBar />
+        </Suspense>
 
         <Suspense fallback={<FilterSkeleton />}>
           <VehicleFilters />

@@ -8,6 +8,9 @@ import { db } from "@/lib/db";
 import { bookings, bookingEvents } from "@vroom/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { eventBus } from "@vroom/events";
+import { registerEventHandlers } from "@/lib/event-handlers";
+
+registerEventHandlers();
 
 export async function POST(request: NextRequest) {
   const session = await auth();

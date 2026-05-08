@@ -14,6 +14,7 @@ import {
   getFeatureLabel,
   getFeatureIcon,
 } from "@/lib/format";
+import { ReviewSummary } from "@/components/review-summary";
 
 export default async function VehicleDetailPage({
   params,
@@ -281,6 +282,7 @@ export default async function VehicleDetailPage({
               <h2 className="text-lg font-display font-bold text-[#1A1A1A] mb-4">
                 Reviews
               </h2>
+              <ReviewSummary vehicleId={vehicle.id} totalReviews={realReviewCount} />
               <ReviewList vehicleId={vehicle.id} />
             </div>
           </div>

@@ -4,6 +4,9 @@ import { vehicleService } from "@/services/vehicle";
 import { auth } from "@/lib/auth";
 import { ApiError, errorResponse } from "@/lib/api-error";
 import { bookingActionSchema } from "@vroom/validators";
+import { registerEventHandlers } from "@/lib/event-handlers";
+
+registerEventHandlers();
 
 export async function GET(
   _request: NextRequest,

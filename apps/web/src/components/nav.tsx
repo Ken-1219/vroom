@@ -23,6 +23,12 @@ export async function Nav({ variant = "dark" }: { variant?: "light" | "dark" }) 
           >
             Browse
           </Link>
+          <Link
+            href="/trip-planner"
+            className={`text-sm font-medium transition-colors ${isDark ? "text-white/70 hover:text-white" : "text-[#6B6B6B] hover:text-[#1A1A1A]"}`}
+          >
+            Trip Planner
+          </Link>
           {session?.user?.role === "host" || session?.user?.role === "admin" ? (
             <Link
               href="/dashboard/host"

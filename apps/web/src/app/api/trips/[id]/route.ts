@@ -3,6 +3,9 @@ import { auth } from "@/lib/auth";
 import { tripService } from "@/services/trip";
 import { endTripSchema } from "@vroom/validators";
 import { ApiError, errorResponse } from "@/lib/api-error";
+import { registerEventHandlers } from "@/lib/event-handlers";
+
+registerEventHandlers();
 
 export async function GET(
   _request: NextRequest,
