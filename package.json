@@ -15,7 +15,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "@esbuild/*"
+      "@esbuild/*",
+      "sharp"
     ],
     "overrides": {
       "drizzle-orm": "0.44.7"
