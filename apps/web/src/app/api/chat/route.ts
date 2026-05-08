@@ -10,6 +10,9 @@ import { formatPrice } from "@/lib/format";
 import { db } from "@/lib/db";
 import { pickupPoints, bookings, vehicles } from "@vroom/db/schema";
 import { eq, and, ilike, desc, sql } from "drizzle-orm";
+import { registerEventHandlers } from "@/lib/event-handlers";
+
+registerEventHandlers();
 import type { VehicleSearchParams } from "@vroom/validators";
 import type { PickupPoint } from "@vroom/db/schema";
 

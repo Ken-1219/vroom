@@ -8,6 +8,9 @@ import { db } from "@/lib/db";
 import { users } from "@vroom/db/schema";
 import { eq } from "drizzle-orm";
 import { ApiError, errorResponse } from "@/lib/api-error";
+import { registerEventHandlers } from "@/lib/event-handlers";
+
+registerEventHandlers();
 
 export async function POST(request: NextRequest) {
   const session = await auth();
