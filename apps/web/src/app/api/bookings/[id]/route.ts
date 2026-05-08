@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { bookingService } from "@/services/booking";
 import { vehicleService } from "@/services/vehicle";
 import { auth } from "@/lib/auth";
+import { bearerAuth } from "@/lib/bearer-auth";
 import { ApiError, errorResponse } from "@/lib/api-error";
 import { bookingActionSchema } from "@vroom/validators";
 import { registerEventHandlers } from "@/lib/event-handlers";
@@ -9,11 +10,14 @@ import { registerEventHandlers } from "@/lib/event-handlers";
 registerEventHandlers();
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user?.id) {
+  const bearer = session?.user ? null : await bearerAuth(request);
+  const currentUser = session?.user ?? bearer;
+
+  if (!currentUser?.id) {
     return errorResponse(new ApiError(401, "UNAUTHORIZED", "Unauthorized"));
   }
 
@@ -28,9 +32,9 @@ export async function GET(
     }
 
     if (
-      booking.renterId !== session.user.id &&
-      booking.hostId !== session.user.id &&
-      session.user.role !== "admin"
+      booking.renterId !== currentUser.id &&
+      booking.hostId !== currentUser.id &&
+      currentUser.role !== "admin"
     ) {
       return errorResponse(new ApiError(403, "FORBIDDEN", "Forbidden"));
     }
@@ -51,7 +55,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user?.id) {
+  const bearer = session?.user ? null : await bearerAuth(request);
+  const currentUser = session?.user ?? bearer;
+
+  if (!currentUser?.id) {
     return errorResponse(new ApiError(401, "UNAUTHORIZED", "Unauthorized"));
   }
 
@@ -71,9 +78,9 @@ export async function PATCH(
       );
     }
 
-    const isRenter = booking.renterId === session.user.id;
-    const isHost = booking.hostId === session.user.id;
-    const isAdmin = session.user.role === "admin";
+    const isRenter = booking.renterId === currentUser.id;
+    const isHost = booking.hostId === currentUser.id;
+    const isAdmin = currentUser.role === "admin";
 
     if (!isRenter && !isHost && !isAdmin) {
       return errorResponse(new ApiError(403, "FORBIDDEN", "Forbidden"));
@@ -84,7 +91,7 @@ export async function PATCH(
         const reason = parsed.data.reason ?? "Cancelled by user";
         const updated = await bookingService.cancel(
           id,
-          session.user.id,
+          currentUser.id,
           reason
         );
         return NextResponse.json(updated);
@@ -95,7 +102,7 @@ export async function PATCH(
             new ApiError(403, "FORBIDDEN", "Only the host can accept bookings")
           );
         }
-        const updated = await bookingService.accept(id, session.user.id);
+        const updated = await bookingService.accept(id, currentUser.id);
         return NextResponse.json(updated);
       }
       case "reject": {
@@ -107,7 +114,7 @@ export async function PATCH(
         const reason = parsed.data.reason ?? "Rejected by host";
         const updated = await bookingService.reject(
           id,
-          session.user.id,
+          currentUser.id,
           reason
         );
         return NextResponse.json(updated);

@@ -34,6 +34,23 @@ export class BookingService {
     const startDate = new Date(input.startDate);
     const endDate = new Date(input.endDate);
 
+    // Auto-cancel any stale unpaid pending bookings from this renter for this vehicle
+    await (db as any)
+      .update(bookings)
+      .set({
+        status: "cancelled",
+        cancelledBy: renterId,
+        cancellationReason: "Replaced by new booking attempt",
+        cancelledAt: new Date(),
+      })
+      .where(
+        and(
+          eq(bookings.vehicleId, input.vehicleId),
+          eq(bookings.renterId, renterId),
+          eq(bookings.status, "pending")
+        )
+      );
+
     const conflict = await this.hasOverlappingBooking(input.vehicleId, startDate, endDate);
     if (conflict) {
       throw new Error("This vehicle is already booked for the selected dates");

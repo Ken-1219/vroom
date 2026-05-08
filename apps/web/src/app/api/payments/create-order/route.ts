@@ -37,6 +37,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const RAZORPAY_MAX_PAISE = 50_000_000; // ₹5,00,000 — Razorpay test limit
+    if (booking.totalAmount > RAZORPAY_MAX_PAISE) {
+      return errorResponse(
+        new ApiError(
+          400,
+          "AMOUNT_TOO_LARGE",
+          `Booking total ₹${Math.round(booking.totalAmount / 100).toLocaleString("en-IN")} exceeds the ₹5,00,000 limit. Please select a shorter rental period.`
+        )
+      );
+    }
+
     // Check for existing captured payment
     const existingPayments = await paymentService.getByBookingId(booking.id);
     const alreadyCaptured = existingPayments.some(

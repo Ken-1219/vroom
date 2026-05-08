@@ -4,6 +4,7 @@ import { bookingService } from "@/services/booking";
 import { vehicleService } from "@/services/vehicle";
 import { pricingService } from "@/services/pricing";
 import { auth } from "@/lib/auth";
+import { bearerAuth } from "@/lib/bearer-auth";
 import { db } from "@/lib/db";
 import { users } from "@vroom/db/schema";
 import { eq } from "drizzle-orm";
@@ -14,7 +15,10 @@ registerEventHandlers();
 
 export async function POST(request: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) {
+  const bearer = session?.user ? null : await bearerAuth(request);
+  const currentUser = session?.user ?? bearer;
+
+  if (!currentUser?.id) {
     return errorResponse(new ApiError(401, "UNAUTHORIZED", "Unauthorized"));
   }
 
@@ -22,16 +26,16 @@ export async function POST(request: NextRequest) {
     const existingUser = await (db as any)
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.id, session.user.id))
+      .where(eq(users.id, currentUser.id))
       .limit(1);
 
     if (existingUser.length === 0) {
       await (db as any).insert(users).values({
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.name ?? session.user.email,
-        role: session.user.role ?? "renter",
-        avatarUrl: session.user.image ?? null,
+        id: currentUser.id,
+        email: currentUser.email,
+        name: currentUser.name ?? currentUser.email,
+        role: currentUser.role ?? "renter",
+        avatarUrl: (currentUser as any).image ?? null,
         emailVerified: true,
       });
     }
@@ -69,7 +73,7 @@ export async function POST(request: NextRequest) {
         priceBreakdown: breakdown as unknown as Record<string, unknown>,
         currency: vehicle.currency,
       },
-      session.user.id,
+      currentUser.id,
       vehicle.hostId
     );
 
@@ -79,14 +83,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) {
+  const bearer = session?.user ? null : await bearerAuth(request);
+  const currentUser = session?.user ?? bearer;
+
+  if (!currentUser?.id) {
     return errorResponse(new ApiError(401, "UNAUTHORIZED", "Unauthorized"));
   }
 
   try {
-    const bookings = await bookingService.getByRenter(session.user.id);
+    const bookings = await bookingService.getByRenter(currentUser.id);
     return NextResponse.json(bookings);
   } catch (error) {
     return errorResponse(error);

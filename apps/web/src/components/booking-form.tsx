@@ -243,12 +243,24 @@ export function BookingForm({
     setPromoError(null);
   }
 
+  const MAX_BOOKING_DAYS = 90;
+
   async function handleConfirmBooking() {
     if (!breakdown) return;
     if (wantDelivery && deliveryError) return;
 
+    const durationDays = Math.ceil(
+      (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000
+    );
+    if (durationDays > MAX_BOOKING_DAYS) {
+      setError(`Maximum booking duration is ${MAX_BOOKING_DAYS} days. Please select a shorter period.`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
+    let pendingBookingId: string | null = null;
 
     try {
       const pickupAddr = wantDelivery && deliveryAddress ? deliveryAddress : vehicleAddress;
@@ -279,6 +291,7 @@ export function BookingForm({
       }
 
       const booking = await bookingRes.json();
+      pendingBookingId = booking.id;
       setBookingId(booking.id);
       setStep("payment");
 
@@ -290,7 +303,9 @@ export function BookingForm({
 
       if (!orderRes.ok) {
         const data = await orderRes.json();
-        throw new Error(data.error?.message ?? "Failed to create payment order");
+        throw new Error(
+          data.error?.message ?? data.error?.description ?? data.message ?? "Failed to create payment order"
+        );
       }
 
       const { orderId, amount, currency: orderCurrency, key } = await orderRes.json();
@@ -329,9 +344,9 @@ export function BookingForm({
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong";
 
-      if (bookingId) {
+      if (pendingBookingId) {
         try {
-          await fetch(`/api/bookings/${bookingId}`, {
+          await fetch(`/api/bookings/${pendingBookingId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
