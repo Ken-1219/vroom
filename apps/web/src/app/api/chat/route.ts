@@ -63,7 +63,7 @@ function buildSystemPrompt(
 
 You have these tools:
 - searchVehicles: Find cars by type, budget, or trip scenario. Pass a natural language query.
-- getVehicleInfo: Get details, pricing, availability, or pickup points for a specific vehicle. Pass the vehicleId and what info you need.${isLoggedIn ? "\n- manageBookings: Create bookings, cancel bookings, list user's bookings, or check trip status. When user wants to book, use vehicleId from earlier search results. Ask for dates if not provided. Use YYYY-MM-DD format." : ""}
+- getVehicleInfo: Get details, pricing, availability, or pickup points for a specific vehicle. Pass the vehicleId and what info you need.${isLoggedIn ? "\n- manageBookings: Create bookings, cancel bookings, modify booking dates, list user's bookings, or check trip status. When user wants to book, use vehicleId from earlier search results. Ask for dates if not provided. Use YYYY-MM-DD format. For modifications, look up bookingId from the user's booking list first if not provided." : ""}
 
 Guidelines:
 - Be concise and conversational
@@ -341,13 +341,13 @@ export async function POST(req: Request) {
 
       ...(session?.user ? {
         manageBookings: tool({
-          description: "Manage bookings: list your bookings, create a new booking, cancel a booking, or check trip status.",
+          description: "Manage bookings: list your bookings, create a new booking, cancel a booking, modify booking dates, or check trip status.",
           inputSchema: z.object({
-            action: z.string().describe("One of: list, create, cancel, trip_status"),
+            action: z.string().describe("One of: list, create, cancel, modify, trip_status"),
             vehicleId: z.string().describe("Vehicle UUID (for create). Empty string if not needed."),
-            bookingId: z.string().describe("Booking UUID (for cancel or trip_status). Empty string if not needed."),
-            startDate: z.string().describe("Start date YYYY-MM-DD (for create). Empty string if not needed."),
-            endDate: z.string().describe("End date YYYY-MM-DD (for create). Empty string if not needed."),
+            bookingId: z.string().describe("Booking UUID (for cancel, modify, or trip_status). Empty string if not needed."),
+            startDate: z.string().describe("Start date YYYY-MM-DD (for create or modify). Empty string if not needed."),
+            endDate: z.string().describe("End date YYYY-MM-DD (for create or modify). Empty string if not needed."),
           }),
           execute: async (input) => {
             const userId = session.user!.id;
@@ -404,6 +404,62 @@ export async function POST(req: Request) {
                 paymentLink: `/bookings/${newBooking.id}/pay`,
                 status: "pending",
                 message: "Booking created! Click Pay Now to complete payment via Razorpay.",
+              };
+            }
+
+            if (input.action === "modify" && input.bookingId && input.startDate && input.endDate) {
+              const booking = await bookingService.getById(input.bookingId);
+              if (!booking) return { error: "Booking not found" };
+              if (booking.renterId !== userId) return { error: "Access denied" };
+              if (booking.status !== "pending" && booking.status !== "confirmed") {
+                return { error: `Cannot modify a booking with status "${booking.status}". Only pending or confirmed bookings can be changed.` };
+              }
+
+              // Check new dates don't conflict (excluding this booking)
+              const conflicts = await (db as any)
+                .select({ id: bookings.id })
+                .from(bookings)
+                .where(and(
+                  eq(bookings.vehicleId, booking.vehicleId),
+                  sql`bookings.id != ${input.bookingId}`,
+                  sql`bookings.status IN ('pending','confirmed','active')`,
+                  sql`bookings.start_date < ${input.endDate} AND bookings.end_date > ${input.startDate}`
+                ));
+              if (conflicts.length > 0) return { error: "The vehicle is not available for those new dates. Try different dates." };
+
+              const vehicle = await vehicleService.getById(booking.vehicleId);
+              if (!vehicle) return { error: "Vehicle not found" };
+
+              const breakdown = pricingService.calculateEstimate({
+                vehicle,
+                startDate: new Date(input.startDate),
+                endDate: new Date(input.endDate),
+              });
+
+              if (breakdown.days < 1) return { error: "End date must be after start date." };
+
+              await (db as any)
+                .update(bookings)
+                .set({
+                  startDate: new Date(input.startDate),
+                  endDate: new Date(input.endDate),
+                  totalAmount: breakdown.total,
+                  priceBreakdown: {
+                    days: breakdown.days, baseRate: breakdown.baseRate,
+                    platformFee: breakdown.platformFee, tax: breakdown.tax,
+                  },
+                  updatedAt: new Date(),
+                })
+                .where(eq(bookings.id, input.bookingId));
+
+              return {
+                message: "Booking updated!",
+                bookingId: input.bookingId,
+                newStartDate: input.startDate,
+                newEndDate: input.endDate,
+                newTotal: formatPrice(breakdown.total, vehicle.currency),
+                days: breakdown.days,
+                link: `/bookings/${input.bookingId}`,
               };
             }
 

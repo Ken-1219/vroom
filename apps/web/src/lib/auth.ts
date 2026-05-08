@@ -90,7 +90,7 @@ const providers = [
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 12 * 60 * 60 },
   pages: {
     signIn: "/login",
   },

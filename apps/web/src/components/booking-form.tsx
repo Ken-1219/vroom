@@ -121,6 +121,15 @@ export function BookingForm({
   const [step, setStep] = useState<Step>("form");
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [breakdown, setBreakdown] = useState<ServerBreakdown | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<{
+    code: string;
+    description: string;
+    discountPaise: number;
+    discountFormatted: string;
+  } | null>(null);
 
   const meta = currencyMeta[currency] ?? { symbol: currency + " ", locale: "en-US" };
   const fmt = useCallback(
@@ -196,6 +205,43 @@ export function BookingForm({
   const totalWithDelivery = breakdown
     ? breakdown.total + (deliveryFeeApplied ? DELIVERY_FEE_PAISE : 0)
     : null;
+
+  const promoDiscount = appliedPromo?.discountPaise ?? 0;
+  const grandTotal = totalWithDelivery !== null ? totalWithDelivery - promoDiscount : null;
+
+  async function applyPromo() {
+    if (!promoInput.trim() || !breakdown) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    try {
+      const res = await fetch("/api/promo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: promoInput.trim(),
+          subtotalPaise: breakdown.total + (deliveryFeeApplied ? DELIVERY_FEE_PAISE : 0),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPromoError(data.error ?? "Invalid promo code");
+        setAppliedPromo(null);
+      } else {
+        setAppliedPromo(data);
+        setPromoError(null);
+      }
+    } catch {
+      setPromoError("Failed to apply promo code");
+    } finally {
+      setPromoLoading(false);
+    }
+  }
+
+  function removePromo() {
+    setAppliedPromo(null);
+    setPromoInput("");
+    setPromoError(null);
+  }
 
   async function handleConfirmBooking() {
     if (!breakdown) return;
@@ -510,6 +556,61 @@ export function BookingForm({
         disabled={loading}
       />
 
+      {/* Promo Code */}
+      {breakdown && (
+        <div>
+          {appliedPromo ? (
+            <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-green-700">{appliedPromo.code} applied</p>
+                  <p className="text-xs text-green-600">{appliedPromo.description} — saving {appliedPromo.discountFormatted}</p>
+                </div>
+              </div>
+              <button
+                onClick={removePromo}
+                className="text-xs text-green-700 hover:text-green-900 font-medium transition-colors cursor-pointer"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs text-[#6B6B6B] mb-2 font-medium">Have a promo code?</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={promoInput}
+                  onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") applyPromo(); }}
+                  placeholder="Enter code (e.g. VROOM10)"
+                  disabled={loading || promoLoading}
+                  className="flex-1 px-3.5 py-2.5 border border-[#E8E6E1] rounded-xl text-sm text-[#1A1A1A] placeholder:text-[#BBB] tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-[#FF4D00]/20 focus:border-[#FF4D00] transition-all disabled:opacity-50 uppercase"
+                />
+                <button
+                  onClick={applyPromo}
+                  disabled={!promoInput.trim() || loading || promoLoading}
+                  className="px-4 py-2.5 bg-[#1A1A1A] hover:bg-[#333] disabled:bg-[#E8E6E1] disabled:text-[#999] text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {promoLoading ? (
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                      <path d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" fill="currentColor" />
+                    </svg>
+                  ) : "Apply"}
+                </button>
+              </div>
+              {promoError && (
+                <p className="text-xs text-red-600 mt-1.5">{promoError}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Price Breakdown */}
       {estimateLoading ? (
         <div className="bg-[#FAFAF8] rounded-lg p-5 text-center">
@@ -546,10 +647,16 @@ export function BookingForm({
               <span className="font-medium text-[#1A1A1A]">{fmt(DELIVERY_FEE_PAISE / 100)}</span>
             </div>
           )}
-          {deliveryFeeApplied && totalWithDelivery && (
+          {appliedPromo && (
+            <div className="flex items-center justify-between text-sm px-1 mt-2">
+              <span className="text-green-600">Promo ({appliedPromo.code})</span>
+              <span className="font-medium text-green-600">−{appliedPromo.discountFormatted}</span>
+            </div>
+          )}
+          {(deliveryFeeApplied || appliedPromo) && grandTotal !== null && (
             <div className="flex items-center justify-between text-sm font-bold px-1 mt-2 pt-2 border-t border-[#E8E6E1]">
-              <span className="text-[#1A1A1A]">Total (incl. delivery)</span>
-              <span className="text-[#FF4D00]">{fmt(totalWithDelivery / 100)}</span>
+              <span className="text-[#1A1A1A]">Total payable</span>
+              <span className="text-[#FF4D00]">{fmt(grandTotal / 100)}</span>
             </div>
           )}
         </div>
@@ -574,7 +681,7 @@ export function BookingForm({
             Processing...
           </span>
         ) : (
-          <>Book & Pay{totalWithDelivery ? ` — ${fmt(totalWithDelivery / 100)}` : breakdown ? ` — ${fmt(breakdown.total / 100)}` : ""}</>
+          <>Book & Pay{grandTotal !== null ? ` — ${fmt(grandTotal / 100)}` : breakdown ? ` — ${fmt(breakdown.total / 100)}` : ""}</>
         )}
       </button>
 

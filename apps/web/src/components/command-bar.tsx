@@ -1411,24 +1411,23 @@ export function CommandBarTrigger({
   variant?: "light" | "dark";
 }) {
   const { setOpen } = useCommandBar();
-
   const isDark = variant === "dark";
 
   return (
     <button
       onClick={() => setOpen(true)}
+      aria-label="Ask Vroom AI"
       className={`
-        inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-sm transition-all
-        border
+        inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all
         ${
           isDark
-            ? "bg-white/10 hover:bg-white/15 border-white/20 text-white/80 hover:text-white"
-            : "bg-[#FAFAF8] hover:bg-[#F0EFEC] border-[#E8E6E1] text-[#6B6B6B] hover:text-[#0D0D0D]"
+            ? "text-white/70 hover:text-white hover:bg-white/10"
+            : "text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#F0EFEC]"
         }
       `}
     >
       <svg
-        className="w-4 h-4"
+        className="w-4 h-4 text-[#FF4D00] flex-shrink-0"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -1437,18 +1436,10 @@ export function CommandBarTrigger({
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
         />
       </svg>
-      <span className="hidden sm:inline">Ask AI...</span>
-      <kbd
-        className={`
-          hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-mono
-          ${isDark ? "bg-white/10 text-white/50" : "bg-[#E8E6E1] text-[#999]"}
-        `}
-      >
-        <span className="text-xs">⌘</span>K
-      </kbd>
+      <span className="hidden sm:inline">Ask AI</span>
     </button>
   );
 }

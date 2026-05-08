@@ -39,7 +39,7 @@ export async function Nav({ variant = "dark" }: { variant?: "light" | "dark" }) 
           ) : null}
           {session?.user ? (
             <div className="flex items-center gap-3">
-              <NotificationBell />
+              <NotificationBell variant={isDark ? "dark" : "light"} />
               <UserMenu
                 name={session.user.name ?? "User"}
                 image={session.user.image}

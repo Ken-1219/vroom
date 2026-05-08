@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { NotificationPanel } from "./notification-panel";
 
-export function NotificationBell() {
+export function NotificationBell({ variant = "dark" }: { variant?: "light" | "dark" }) {
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
@@ -37,7 +37,7 @@ export function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative p-2 text-white/50 hover:text-white transition-colors cursor-pointer"
+        className={`relative p-2 transition-colors cursor-pointer ${variant === "dark" ? "text-white/50 hover:text-white" : "text-[#6B6B6B] hover:text-[#1A1A1A]"}`}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>

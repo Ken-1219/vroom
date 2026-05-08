@@ -16,6 +16,8 @@ import {
 } from "@/lib/format";
 import { ReviewSummary } from "@/components/review-summary";
 import { VehicleChat } from "@/components/vehicle-chat";
+import { RangeAdvisor } from "@/components/range-advisor";
+import { PriceDropAlert } from "@/components/price-drop-alert";
 
 export default async function VehicleDetailPage({
   params,
@@ -37,6 +39,11 @@ export default async function VehicleDetailPage({
   const reviewStats = await reviewService.getByVehicle(vehicle.id, 1, 0);
   const realReviewCount = reviewStats.total;
   const realRatingAvg = reviewStats.avgRating;
+
+  const todayDay = new Date().getDay(); // 0 = Sun, 6 = Sat
+  const isTodayWeekend = todayDay === 0 || todayDay === 6;
+  const hasWeekendRate = !!vehicle.weekendRate && vehicle.weekendRate !== vehicle.baseDailyRate;
+  const displayRate = isTodayWeekend && hasWeekendRate ? vehicle.weekendRate! : vehicle.baseDailyRate;
 
   const photos = (vehicle.photos ?? []) as Array<{ url: string; position: number; isPrimary?: boolean }>;
   const features = (vehicle.features ?? []) as string[];
@@ -277,6 +284,18 @@ export default async function VehicleDetailPage({
               </div>
             </div>
 
+            {/* Range / Fuel Advisor */}
+            <hr className="border-[#E8E6E1]" />
+            <div>
+              <h2 className="text-lg font-display font-bold text-[#1A1A1A] mb-3">
+                Plan your trip
+              </h2>
+              <RangeAdvisor
+                vehicleName={`${vehicle.make} ${vehicle.model}`}
+                fuelType={vehicle.fuelType}
+              />
+            </div>
+
             {/* Vehicle Condition */}
             <hr className="border-[#E8E6E1]" />
             <VehicleConditionSection
@@ -303,17 +322,21 @@ export default async function VehicleDetailPage({
               <div className="bg-white border border-[#E8E6E1] rounded-2xl p-6 shadow-sm">
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-3xl font-display font-bold text-[#1A1A1A]">
-                    {formatPrice(vehicle.baseDailyRate, vehicle.currency)}
+                    {formatPrice(displayRate, vehicle.currency)}
                   </span>
                   <span className="text-[#6B6B6B] text-base">/day</span>
                 </div>
 
-                {vehicle.weekendRate &&
-                  vehicle.weekendRate !== vehicle.baseDailyRate && (
-                    <p className="text-sm text-[#6B6B6B] mt-1">
-                      Weekend: {formatPrice(vehicle.weekendRate, vehicle.currency)}/day
-                    </p>
-                  )}
+                {isTodayWeekend && hasWeekendRate ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-semibold text-[#FF4D00] bg-[#FFF1EB] px-2 py-0.5 rounded-full">Weekend rate</span>
+                    <span className="text-sm text-[#999]">Weekday: {formatPrice(vehicle.baseDailyRate, vehicle.currency)}/day</span>
+                  </div>
+                ) : hasWeekendRate ? (
+                  <p className="text-sm text-[#6B6B6B] mt-1">
+                    Weekend: {formatPrice(vehicle.weekendRate!, vehicle.currency)}/day
+                  </p>
+                ) : null}
 
                 {/* Discount badges */}
                 <div className="mt-4 space-y-2">
@@ -362,6 +385,12 @@ export default async function VehicleDetailPage({
                       ? "Instant booking — confirm immediately"
                       : "Host approval required"}
                   </p>
+                  <div className="flex justify-center mt-3">
+                    <PriceDropAlert
+                      vehicleId={vehicle.id}
+                      vehicleName={`${vehicle.make} ${vehicle.model}`}
+                    />
+                  </div>
                 </div>
               </div>
 

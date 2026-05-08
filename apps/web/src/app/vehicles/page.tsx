@@ -76,11 +76,9 @@ export default async function VehiclesPage({
     Object.entries(params).filter(([, v]) => v !== undefined)
   ) as VehicleSearchParams;
 
-  // When we have coordinates, skip the city-name filter — the radius filter handles locality
-  // This avoids "Bengaluru" vs "Bangalore" name mismatches
-  if (latitude !== undefined) {
-    delete cleanParams.city;
-  }
+  // Always skip the SQL city-name filter — geographic filtering is done via lat/lng + radius.
+  // This avoids failures for neighborhoods (e.g. "Whitefield") and name mismatches ("Bengaluru" vs "Bangalore").
+  delete cleanParams.city;
 
   let result: {
     vehicles: Array<any>;

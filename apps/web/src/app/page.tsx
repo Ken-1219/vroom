@@ -6,6 +6,7 @@ import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
 import { HomeAI } from "@/components/home-ai";
 import { formatPrice } from "@/lib/format";
+import { PersonalizedRecommendations } from "@/components/personalized-recommendations";
 
 const NEIGHBORHOODS = [
   { name: "Koramangala", tagline: "Startup hub, always buzzing", image: "https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=600&h=400&fit=crop" },
@@ -80,6 +81,9 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {/* ── Personalized Recommendations (client component, only shows when logged in) ── */}
+      {session?.user && <PersonalizedRecommendations />}
 
       {/* ── How It Works ── */}
       <section className="py-20 px-6 bg-white">
