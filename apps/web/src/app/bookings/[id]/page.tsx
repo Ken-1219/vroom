@@ -391,6 +391,22 @@ export default async function BookingDetailPage({
           </div>
         )}
 
+        {/* Pay Now — pending bookings */}
+        {isRenter && booking.status === "pending" && (
+          <div className="bg-[#FFF1EB] border border-[#FF4D00]/30 rounded-xl p-6 mb-6">
+            <h3 className="text-sm font-semibold text-[#E64500] mb-1">Payment required</h3>
+            <p className="text-sm text-[#6B6B6B] mb-4">
+              Complete your payment to confirm this booking.
+            </p>
+            <Link
+              href={`/bookings/${booking.id}/pay`}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#FF4D00] hover:bg-[#E64500] text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              Pay {formatPrice(booking.totalAmount, booking.currency)}
+            </Link>
+          </div>
+        )}
+
         {/* Cancel Button */}
         {canCancel && (
           <div className="flex justify-end">

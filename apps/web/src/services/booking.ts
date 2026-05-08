@@ -17,7 +17,7 @@ export class BookingService {
       .where(
         and(
           eq(bookings.vehicleId, vehicleId),
-          inArray(bookings.status, ["confirmed", "active"]),
+          inArray(bookings.status, ["pending", "confirmed", "active"]),
           lt(bookings.startDate, endDate),
           gt(bookings.endDate, startDate)
         )
