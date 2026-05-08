@@ -29,6 +29,18 @@ function formatDate(date: Date | string): string {
   });
 }
 
+function formatDateTime(date: Date | string): string {
+  return new Date(date).toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 export default async function BookingDetailPage({
   params,
 }: {
@@ -350,7 +362,7 @@ export default async function BookingDetailPage({
                 <div>
                   <p className="text-xs text-[#999]">Started</p>
                   <p className="text-sm font-medium text-[#1A1A1A]">
-                    {formatDate(trip.actualStart)}
+                    {formatDateTime(trip.actualStart)}
                   </p>
                 </div>
               )}
@@ -358,7 +370,7 @@ export default async function BookingDetailPage({
                 <div>
                   <p className="text-xs text-[#999]">Completed</p>
                   <p className="text-sm font-medium text-[#1A1A1A]">
-                    {formatDate(trip.actualEnd)}
+                    {formatDateTime(trip.actualEnd)}
                   </p>
                 </div>
               )}
