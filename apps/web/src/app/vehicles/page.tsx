@@ -9,6 +9,18 @@ import type { VehicleSearchParams } from "@vroom/validators";
 const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
   bangalore: { lat: 12.9716, lng: 77.5946 },
   bengaluru: { lat: 12.9716, lng: 77.5946 },
+  mumbai: { lat: 19.0760, lng: 72.8777 },
+  delhi: { lat: 28.6139, lng: 77.2090 },
+  "new delhi": { lat: 28.6139, lng: 77.2090 },
+  pune: { lat: 18.5204, lng: 73.8567 },
+  hyderabad: { lat: 17.3850, lng: 78.4867 },
+  chennai: { lat: 13.0827, lng: 80.2707 },
+  kolkata: { lat: 22.5726, lng: 88.3639 },
+  goa: { lat: 15.2993, lng: 74.1240 },
+  ahmedabad: { lat: 23.0225, lng: 72.5714 },
+  jaipur: { lat: 26.9124, lng: 75.7873 },
+  kochi: { lat: 9.9312, lng: 76.2673 },
+  chandigarh: { lat: 30.7333, lng: 76.7794 },
 };
 
 function getCityCenter(city: string): { lat: number; lng: number } | null {
@@ -63,6 +75,12 @@ export default async function VehiclesPage({
   const cleanParams = Object.fromEntries(
     Object.entries(params).filter(([, v]) => v !== undefined)
   ) as VehicleSearchParams;
+
+  // When we have coordinates, skip the city-name filter — the radius filter handles locality
+  // This avoids "Bengaluru" vs "Bangalore" name mismatches
+  if (latitude !== undefined) {
+    delete cleanParams.city;
+  }
 
   let result: {
     vehicles: Array<any>;

@@ -31,11 +31,11 @@ const TRANSMISSION_OPTIONS = [
 ];
 
 const RADIUS_OPTIONS = [
-  { label: "Within 5 km", value: "5" },
-  { label: "Within 10 km", value: "10" },
-  { label: "Within 25 km", value: "25" },
-  { label: "Within 50 km", value: "50" },
-  { label: "Within 100 km", value: "100" },
+  { label: "≤5 km", value: "5" },
+  { label: "≤10 km", value: "10" },
+  { label: "≤25 km", value: "25" },
+  { label: "≤50 km", value: "50" },
+  { label: "≤100 km", value: "100" },
 ];
 
 const SORT_OPTIONS_BASE = [
@@ -121,10 +121,30 @@ export function VehicleFilters() {
         placeholder="City, district, town..."
         value={current.city}
         types={["(regions)"]}
-        onPlaceSelect={(place) => update("city", place.city)}
-        onClear={() => update("city", "")}
+        onPlaceSelect={(place) => {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("city", place.city);
+          params.set("latitude", String(place.lat));
+          params.set("longitude", String(place.lng));
+          params.delete("page");
+          router.push(`${pathname}?${params.toString()}`);
+        }}
+        onClear={() => {
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("city");
+          params.delete("latitude");
+          params.delete("longitude");
+          params.delete("page");
+          router.push(`${pathname}?${params.toString()}`);
+        }}
         onTextChange={(text) => {
-          if (!text) update("city", "");
+          if (!text) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("city");
+            params.delete("latitude");
+            params.delete("longitude");
+            router.push(`${pathname}?${params.toString()}`);
+          }
         }}
         className="lg:w-56"
       />
@@ -163,6 +183,7 @@ export function VehicleFilters() {
           onChange={(v) => update("radiusKm", v)}
           options={RADIUS_OPTIONS}
           aria-label="Search radius"
+          className="lg:w-28"
         />
       )}
 

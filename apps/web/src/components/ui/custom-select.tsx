@@ -143,7 +143,7 @@ export function CustomSelect({
           ref={listRef}
           role="listbox"
           aria-label={ariaLabel}
-          className="absolute z-50 mt-1.5 w-full min-w-[180px] bg-white border border-[#E8E6E1] rounded-xl shadow-lg shadow-black/8 py-1 max-h-64 overflow-auto"
+          className="absolute z-50 mt-1.5 w-full min-w-[180px] bg-white border border-[#E8E6E1] rounded-xl shadow-lg shadow-black/8 py-1 max-h-60 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#E8E6E1] [&::-webkit-scrollbar-thumb]:rounded-full"
         >
           {allOptions.map((opt, i) => {
             const isSelected = opt.value === value;
