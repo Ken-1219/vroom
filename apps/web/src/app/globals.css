@@ -158,9 +158,10 @@ html {
   animation: pulse-ring 2s ease-out infinite;
 }
 
-/* Scrollbar */
+/* Scrollbar — light default (most pages are light) */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -170,5 +171,19 @@ html {
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: #FF4D00;
+}
+
+/* Dark scrollbar for dark-background pages (homepage, login) */
+.dark-scroll::-webkit-scrollbar-thumb {
+  background: #2A2A2A;
+}
+.dark-scroll::-webkit-scrollbar-thumb:hover {
+  background: #FF4D00;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #D1D1D1 transparent;
 }

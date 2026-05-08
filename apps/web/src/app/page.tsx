@@ -31,7 +31,7 @@ export default async function Home() {
   const startingPrice = cities[0] ? formatPrice(cities[0].startingPrice, "INR") : "1,200";
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen dark-scroll">
       {/* ── AI-First Hero ── */}
       <header className="relative overflow-hidden bg-[#0D0D0D]">
         <Nav variant="dark" />
