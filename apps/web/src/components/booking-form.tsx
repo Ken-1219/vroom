@@ -130,6 +130,7 @@ export function BookingForm({
     discountPaise: number;
     discountFormatted: string;
   } | null>(null);
+  const [availability, setAvailability] = useState<"available" | "unavailable" | "checking" | null>(null);
 
   const meta = currencyMeta[currency] ?? { symbol: currency + " ", locale: "en-US" };
   const fmt = useCallback(
@@ -201,6 +202,40 @@ export function BookingForm({
 
     return () => controller.abort();
   }, [vehicleId, startDate, endDate, protectionPlan]);
+
+  // Availability check — runs whenever dates change
+  useEffect(() => {
+    if (!startDate || !endDate) {
+      setAvailability(null);
+      return;
+    }
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end <= start) {
+      setAvailability(null);
+      return;
+    }
+
+    setAvailability("checking");
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    });
+
+    fetch(`/api/vehicles/${vehicleId}/availability?${params}`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data !== null) {
+          setAvailability(data.available ? "available" : "unavailable");
+        }
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") setAvailability(null);
+      });
+
+    return () => controller.abort();
+  }, [vehicleId, startDate, endDate]);
 
   const totalWithDelivery = breakdown
     ? breakdown.total + (deliveryFeeApplied ? DELIVERY_FEE_PAISE : 0)
@@ -413,6 +448,30 @@ export function BookingForm({
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {/* Availability status banner */}
+      {availability === "unavailable" && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3.5">
+          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-red-700">Car not available for these dates</p>
+            <p className="text-xs text-red-600 mt-0.5">This car is already booked during the selected period. Please choose different dates.</p>
+          </div>
+        </div>
+      )}
+      {availability === "checking" && (
+        <div className="flex items-center gap-2 text-xs text-[#999]">
+          <svg className="animate-spin h-3.5 w-3.5 text-[#FF4D00]" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+            <path d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" fill="currentColor" />
+          </svg>
+          Checking availability...
         </div>
       )}
 
@@ -684,7 +743,7 @@ export function BookingForm({
       {/* Confirm & Pay Button */}
       <button
         onClick={handleConfirmBooking}
-        disabled={!breakdown || loading || estimateLoading || (wantDelivery && !!deliveryError)}
+        disabled={!breakdown || loading || estimateLoading || availability === "unavailable" || availability === "checking" || (wantDelivery && !!deliveryError)}
         className="w-full px-6 py-3 bg-[#FF4D00] hover:bg-[#E64500] disabled:bg-[#E8E6E1] disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors cursor-pointer"
       >
         {loading ? (

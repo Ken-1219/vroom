@@ -13,7 +13,12 @@ const estimateSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return errorResponse(new ApiError(400, "VALIDATION_ERROR", "Request body is missing or not valid JSON"));
+    }
     const parsed = estimateSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(parsed.error);

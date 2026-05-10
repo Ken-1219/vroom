@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { bookings, bookingEvents, type Booking } from "@vroom/db/schema";
-import { eq, and, desc, sql, lt, gt, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, lt, gte, inArray } from "drizzle-orm";
 import { eventBus } from "@vroom/events";
 import { pricingService } from "@/services/pricing";
 import type { CreateBookingInput } from "@vroom/validators";
@@ -19,7 +19,7 @@ export class BookingService {
           eq(bookings.vehicleId, vehicleId),
           inArray(bookings.status, ["pending", "confirmed", "active"]),
           lt(bookings.startDate, endDate),
-          gt(bookings.endDate, startDate)
+          gte(bookings.endDate, startDate)
         )
       )
       .limit(1)) as { id: string }[];

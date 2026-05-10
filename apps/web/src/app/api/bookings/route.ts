@@ -7,7 +7,6 @@ import { auth } from "@/lib/auth";
 import { bearerAuth } from "@/lib/bearer-auth";
 import { db } from "@/lib/db";
 import { users } from "@vroom/db/schema";
-import { eq } from "drizzle-orm";
 import { ApiError, errorResponse } from "@/lib/api-error";
 import { registerEventHandlers } from "@/lib/event-handlers";
 
@@ -23,22 +22,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const existingUser = await (db as any)
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.id, currentUser.id))
-      .limit(1);
-
-    if (existingUser.length === 0) {
-      await (db as any).insert(users).values({
+    // Upsert-style: if user exists by ID → skip. If email conflict → also skip.
+    // This handles the case where an OAuth user exists with the same email but a different session ID.
+    await (db as any)
+      .insert(users)
+      .values({
         id: currentUser.id,
         email: currentUser.email,
         name: currentUser.name ?? currentUser.email,
         role: currentUser.role ?? "renter",
         avatarUrl: (currentUser as any).image ?? null,
         emailVerified: true,
-      });
-    }
+      })
+      .onConflictDoNothing();
 
     const body = await request.json();
     const parsed = createBookingSchema.safeParse(body);

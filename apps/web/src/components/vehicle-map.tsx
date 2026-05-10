@@ -314,12 +314,13 @@ export function VehicleMap({
 
       // --- Price label markers (HTML, clickable) ---
       function addPriceMarkers() {
+        // Guard: don't run if style or sources aren't ready yet
+        if (!map.isStyleLoaded()) return;
+        if (!map.getSource("vehicles")) return;
+
         clearPriceMarkers();
         const zoom = map.getZoom();
         if (zoom < 10) return;
-
-        const source = map.getSource("vehicles") as mapboxgl.GeoJSONSource;
-        if (!source) return;
 
         const canvas = map.getCanvas();
         const bbox: [mapboxgl.PointLike, mapboxgl.PointLike] = [
@@ -341,50 +342,105 @@ export function VehicleMap({
           const price = f.properties?.price;
           const make = f.properties?.make ?? "";
           const model = f.properties?.model ?? "";
+          const vehicleType = f.properties?.vehicleType ?? "";
+          const rating = f.properties?.rating;
           if (!price) return;
+
+          const zoom = map.getZoom();
+          const showCard = zoom >= 13;
 
           const el = document.createElement("a");
           el.href = `/vehicles/${id}`;
           el.className = "vroom-price-marker";
           el.style.textDecoration = "none";
-          el.innerHTML = `<div style="
-            background: white;
-            border: 2px solid #FF4D00;
-            border-radius: 20px;
-            padding: 4px 10px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #1A1A1A;
-            white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            cursor: pointer;
-            font-family: system-ui, sans-serif;
-            transition: all 0.15s ease;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-          ">${price}<span style="font-weight: 400; color: #999; font-size: 10px;">/day</span></div>`;
 
-          el.addEventListener("mouseenter", () => {
-            const inner = el.firstElementChild as HTMLElement;
-            if (inner) {
-              inner.style.background = "#FF4D00";
-              inner.style.color = "white";
-              inner.style.transform = "scale(1.08)";
-              const span = inner.querySelector("span") as HTMLElement;
-              if (span) span.style.color = "rgba(255,255,255,0.7)";
-            }
-          });
-          el.addEventListener("mouseleave", () => {
-            const inner = el.firstElementChild as HTMLElement;
-            if (inner) {
-              inner.style.background = "white";
-              inner.style.color = "#1A1A1A";
-              inner.style.transform = "scale(1)";
-              const span = inner.querySelector("span") as HTMLElement;
-              if (span) span.style.color = "#999";
-            }
-          });
+          if (showCard) {
+            // Full car details card
+            const typeLabel = vehicleType
+              ? vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1).toLowerCase().replace(/_/g, " ")
+              : "";
+            const ratingStars = rating
+              ? `<span style="color:#FF4D00; font-size:10px;">★</span><span style="font-size:11px; font-weight:600; color:#1A1A1A;">${rating}</span>`
+              : "";
+
+            el.innerHTML = `<div style="
+              background: white;
+              border: 2px solid #FF4D00;
+              border-radius: 12px;
+              padding: 8px 12px;
+              min-width: 140px;
+              max-width: 200px;
+              box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+              cursor: pointer;
+              font-family: system-ui, sans-serif;
+              transition: all 0.15s ease;
+            ">
+              <div style="font-size:13px; font-weight:700; color:#1A1A1A; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${make} ${model}</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px;">
+                <span style="font-size:10px; color:#666; background:#F5F5F5; border-radius:4px; padding:1px 5px;">${typeLabel}</span>
+                <span style="display:flex; align-items:center; gap:2px;">${ratingStars}</span>
+              </div>
+              <div style="margin-top:6px; padding-top:6px; border-top:1px solid #F0F0F0; display:flex; align-items:baseline; gap:3px;">
+                <span style="font-size:14px; font-weight:800; color:#FF4D00;">${price}</span>
+                <span style="font-size:10px; color:#999;">/day</span>
+              </div>
+            </div>`;
+
+            el.addEventListener("mouseenter", () => {
+              const inner = el.firstElementChild as HTMLElement;
+              if (inner) {
+                inner.style.boxShadow = "0 6px 24px rgba(255,77,0,0.25)";
+                inner.style.transform = "scale(1.03) translateY(-2px)";
+              }
+            });
+            el.addEventListener("mouseleave", () => {
+              const inner = el.firstElementChild as HTMLElement;
+              if (inner) {
+                inner.style.boxShadow = "0 4px 16px rgba(0,0,0,0.18)";
+                inner.style.transform = "scale(1)";
+              }
+            });
+          } else {
+            // Compact price pill
+            el.innerHTML = `<div style="
+              background: white;
+              border: 2px solid #FF4D00;
+              border-radius: 20px;
+              padding: 4px 10px;
+              font-size: 12px;
+              font-weight: 700;
+              color: #1A1A1A;
+              white-space: nowrap;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+              cursor: pointer;
+              font-family: system-ui, sans-serif;
+              transition: all 0.15s ease;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            ">${price}<span style="font-weight: 400; color: #999; font-size: 10px;">/day</span></div>`;
+
+            el.addEventListener("mouseenter", () => {
+              const inner = el.firstElementChild as HTMLElement;
+              if (inner) {
+                inner.style.background = "#FF4D00";
+                inner.style.color = "white";
+                inner.style.transform = "scale(1.08)";
+                const span = inner.querySelector("span") as HTMLElement;
+                if (span) span.style.color = "rgba(255,255,255,0.7)";
+              }
+            });
+            el.addEventListener("mouseleave", () => {
+              const inner = el.firstElementChild as HTMLElement;
+              if (inner) {
+                inner.style.background = "white";
+                inner.style.color = "#1A1A1A";
+                inner.style.transform = "scale(1)";
+                const span = inner.querySelector("span") as HTMLElement;
+                if (span) span.style.color = "#999";
+              }
+            });
+          }
 
           el.addEventListener("click", (e) => {
             e.preventDefault();
@@ -399,8 +455,9 @@ export function VehicleMap({
         });
       }
 
-      map.on("zoomend", addPriceMarkers);
-      map.on("moveend", addPriceMarkers);
+      // "idle" fires when all tiles are loaded and all animations are done —
+      // the only reliable moment for queryRenderedFeatures to return actual results.
+      map.on("idle", addPriceMarkers);
 
       // --- Cluster interactions ---
       map.on("click", "clusters", (e) => {
