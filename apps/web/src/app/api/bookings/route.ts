@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       .update(bookings)
       .set({
         status: "cancelled",
-        cancelledBy: "system",
+        cancelledBy: null,
         cancellationReason: "Booking expired — payment not completed",
         cancelledAt: new Date(),
       })
