@@ -4,6 +4,7 @@ import { reviewService } from "@/services/review";
 import { bookingService } from "@/services/booking";
 import { createReviewSchema } from "@vroom/validators";
 import { ApiError, errorResponse } from "@/lib/api-error";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -26,23 +27,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isRenter = booking.renterId === session.user.id;
-    const isHost = booking.hostId === session.user.id;
+    const userId = await resolveUserId(session.user.id, session.user.email);
+
+    const isRenter = booking.renterId === userId;
+    const isHost = booking.hostId === userId;
     if (!isRenter && !isHost) {
       return errorResponse(new ApiError(403, "FORBIDDEN", "Not part of this booking"));
     }
 
-    const alreadyReviewed = await reviewService.hasReviewed(
-      input.bookingId,
-      session.user.id
-    );
+    const alreadyReviewed = await reviewService.hasReviewed(input.bookingId, userId);
     if (alreadyReviewed) {
       return errorResponse(
         new ApiError(409, "ALREADY_REVIEWED", "You have already reviewed this booking")
       );
     }
 
-    const review = await reviewService.create(input, session.user.id);
+    const review = await reviewService.create(input, userId);
     return NextResponse.json(review, { status: 201 });
   } catch (error) {
     return errorResponse(error);

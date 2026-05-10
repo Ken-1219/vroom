@@ -4,6 +4,7 @@ import { bookingService } from "@/services/booking";
 import { paymentService } from "@/services/payment";
 import { createPaymentOrderSchema } from "@vroom/validators";
 import { ApiError, errorResponse } from "@/lib/api-error";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -25,7 +26,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (booking.renterId !== session.user.id) {
+    // Resolve stable DB user ID — session ID can differ from stored renterId
+    const userId = await resolveUserId(session.user.id, session.user.email);
+
+    if (booking.renterId !== userId) {
       return errorResponse(
         new ApiError(403, "FORBIDDEN", "Only the renter can pay for a booking")
       );
@@ -63,7 +67,7 @@ export async function POST(request: NextRequest) {
       booking.id,
       booking.totalAmount,
       booking.currency,
-      session.user.id
+      userId
     );
 
     return NextResponse.json({

@@ -5,6 +5,7 @@ import { paymentService } from "@/services/payment";
 import { formatPrice } from "@/lib/format";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 export default async function BookingConfirmationPage({
   params,
@@ -16,7 +17,8 @@ export default async function BookingConfirmationPage({
 
   const { id } = await params;
   const booking = await bookingService.getById(id);
-  if (!booking || booking.renterId !== session.user.id) redirect("/bookings");
+  const userId = await resolveUserId(session.user.id, session.user.email);
+  if (!booking || booking.renterId !== userId) redirect("/bookings");
 
   const vehicle = await vehicleService.getById(booking.vehicleId);
   const payments = await paymentService.getByBookingId(id);

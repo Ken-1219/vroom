@@ -11,6 +11,7 @@ import { Nav } from "@/components/nav";
 import { CancelBookingButton } from "@/components/cancel-booking-button";
 import { StartTripButton } from "@/components/start-trip-button";
 import { MutationListener } from "@/components/mutation-listener";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 const statusStyles: Record<string, { bg: string; text: string; label: string }> = {
   pending: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Pending" },
@@ -54,9 +55,12 @@ export default async function BookingDetailPage({
   const booking = await bookingService.getById(id);
   if (!booking) notFound();
 
+  // Resolve stable DB user ID — session ID can differ from stored renterId/hostId
+  const userId = await resolveUserId(session.user.id, session.user.email);
+
   if (
-    booking.renterId !== session.user.id &&
-    booking.hostId !== session.user.id &&
+    booking.renterId !== userId &&
+    booking.hostId !== userId &&
     session.user.role !== "admin"
   ) {
     notFound();
@@ -65,12 +69,10 @@ export default async function BookingDetailPage({
   const vehicle = await vehicleService.getById(booking.vehicleId);
   const trip = await tripService.getByBooking(id);
   const existingReviews = await reviewService.getByBooking(id);
-  const hasReviewed = existingReviews.some(
-    (r) => r.reviewerId === session.user!.id
-  );
+  const hasReviewed = existingReviews.some((r) => r.reviewerId === userId);
 
-  const isHost = booking.hostId === session.user.id;
-  const isRenter = booking.renterId === session.user.id;
+  const isHost = booking.hostId === userId;
+  const isRenter = booking.renterId === userId;
 
   const status = statusStyles[booking.status] ?? statusStyles.completed!;
   const canCancel = ["pending", "confirmed"].includes(booking.status);

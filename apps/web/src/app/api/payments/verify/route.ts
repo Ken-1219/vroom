@@ -9,6 +9,7 @@ import { bookings, bookingEvents } from "@vroom/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { eventBus } from "@vroom/events";
 import { registerEventHandlers } from "@/lib/event-handlers";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 registerEventHandlers();
 
@@ -35,7 +36,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (booking.renterId !== session.user.id) {
+    // Resolve stable DB user ID — session ID can differ from stored renterId
+    const userId = await resolveUserId(session.user.id, session.user.email);
+
+    if (booking.renterId !== userId) {
       return errorResponse(new ApiError(403, "FORBIDDEN", "Forbidden"));
     }
 
@@ -70,7 +74,7 @@ export async function POST(request: NextRequest) {
           paymentId: razorpay_payment_id,
           orderId: razorpay_order_id,
         },
-        actorId: session.user.id,
+        actorId: userId,
         actorType: "user",
       });
 

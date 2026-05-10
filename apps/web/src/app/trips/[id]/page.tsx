@@ -7,6 +7,7 @@ import { vehicleService } from "@/services/vehicle";
 import { Nav } from "@/components/nav";
 import { TripTimeline } from "@/components/trip-timeline";
 import { CompleteTripForm } from "./complete-trip-form";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 const statusStyles: Record<string, { bg: string; text: string; label: string }> = {
   pending: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Pending" },
@@ -29,16 +30,18 @@ export default async function TripDetailPage({
   const booking = await bookingService.getById(trip.bookingId);
   if (!booking) notFound();
 
+  const userId = await resolveUserId(session.user.id, session.user.email);
+
   if (
-    booking.renterId !== session.user.id &&
-    booking.hostId !== session.user.id &&
+    booking.renterId !== userId &&
+    booking.hostId !== userId &&
     session.user.role !== "admin"
   ) {
     notFound();
   }
 
   const vehicle = await vehicleService.getById(booking.vehicleId);
-  const isHost = booking.hostId === session.user.id;
+  const isHost = booking.hostId === userId;
 
   const status = statusStyles[trip.status ?? "pending"] ?? statusStyles.pending!;
 

@@ -6,6 +6,7 @@ import { vehicleService } from "@/services/vehicle";
 import { reviewService } from "@/services/review";
 import { Nav } from "@/components/nav";
 import { ReviewForm } from "@/components/review-form";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 export default async function ReviewPage({
   params,
@@ -19,7 +20,9 @@ export default async function ReviewPage({
   const booking = await bookingService.getById(id);
   if (!booking) notFound();
 
-  if (booking.renterId !== session.user.id && booking.hostId !== session.user.id) {
+  const userId = await resolveUserId(session.user.id, session.user.email);
+
+  if (booking.renterId !== userId && booking.hostId !== userId) {
     notFound();
   }
 
@@ -27,7 +30,7 @@ export default async function ReviewPage({
     redirect(`/bookings/${id}`);
   }
 
-  const alreadyReviewed = await reviewService.hasReviewed(id, session.user.id);
+  const alreadyReviewed = await reviewService.hasReviewed(id, userId);
   if (alreadyReviewed) {
     redirect(`/bookings/${id}`);
   }
