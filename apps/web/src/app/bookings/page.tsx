@@ -5,6 +5,7 @@ import { bookingService } from "@/services/booking";
 import { formatPrice } from "@/lib/format";
 import { Nav } from "@/components/nav";
 import { MutationListener } from "@/components/mutation-listener";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 const statusStyles: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -26,7 +27,8 @@ export default async function BookingsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const bookings = await bookingService.getByRenter(session.user.id);
+  const userId = await resolveUserId(session.user.id, session.user.email);
+  const bookings = await bookingService.getByRenter(userId);
 
   return (
     <div className="min-h-screen bg-[#FAFAF8]">

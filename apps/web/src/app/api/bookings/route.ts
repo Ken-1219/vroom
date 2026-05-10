@@ -10,6 +10,7 @@ import { users, bookings } from "@vroom/db/schema";
 import { eq, and, lt } from "drizzle-orm";
 import { ApiError, errorResponse } from "@/lib/api-error";
 import { registerEventHandlers } from "@/lib/event-handlers";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 registerEventHandlers();
 
@@ -23,21 +24,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Resolve the effective user ID that actually exists in the DB.
-    // If the same Google account logs in across sessions it may get different
-    // session IDs — we always look up by email first so the FK on bookings works.
-    let effectiveUserId = currentUser.id;
-    const byEmail = await (db as any)
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, currentUser.email!))
-      .limit(1) as { id: string }[];
+    // Resolve the stable DB user ID by email (session ID can change between OAuth logins)
+    const effectiveUserId = await resolveUserId(currentUser.id, currentUser.email);
 
-    if (byEmail.length > 0) {
-      // User already exists — use the stable ID from the DB
-      effectiveUserId = byEmail[0]!.id;
-    } else {
-      // Truly new user — insert them
+    // If this is a new user not yet in the DB, insert them
+    if (effectiveUserId === currentUser.id) {
       await (db as any).insert(users).values({
         id: currentUser.id,
         email: currentUser.email,
@@ -46,13 +37,6 @@ export async function POST(request: NextRequest) {
         avatarUrl: (currentUser as any).image ?? null,
         emailVerified: true,
       }).onConflictDoNothing();
-      // Re-read in case of a race (two requests hitting this path simultaneously)
-      const inserted = await (db as any)
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, currentUser.email!))
-        .limit(1) as { id: string }[];
-      if (inserted.length > 0) effectiveUserId = inserted[0]!.id;
     }
 
     const body = await request.json();
@@ -127,7 +111,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const bookings = await bookingService.getByRenter(currentUser.id);
+    const userId = await resolveUserId(currentUser.id, currentUser.email);
+    const bookings = await bookingService.getByRenter(userId);
     return NextResponse.json(bookings);
   } catch (error) {
     return errorResponse(error);

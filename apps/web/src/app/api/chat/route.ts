@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { pickupPoints, bookings, vehicles } from "@vroom/db/schema";
 import { eq, and, ilike, desc, sql } from "drizzle-orm";
 import { registerEventHandlers } from "@/lib/event-handlers";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 registerEventHandlers();
 import type { VehicleSearchParams } from "@vroom/validators";
@@ -350,7 +351,7 @@ export async function POST(req: Request) {
             endDate: z.string().describe("End date YYYY-MM-DD (for create or modify). Empty string if not needed."),
           }),
           execute: async (input) => {
-            const userId = session.user!.id;
+            const userId = await resolveUserId(session.user!.id, session.user!.email);
 
             if (input.action === "list") {
               const list = await bookingService.getByRenter(userId);
