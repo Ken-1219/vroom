@@ -39,12 +39,31 @@ export function errorResponse(error: unknown): Response {
   }
 
   console.error("Unhandled error:", error);
+
+  // Determine a safe, user-facing message.
+  // Raw DB/Drizzle errors start with "Failed query:" — never expose these to clients.
+  let safeMessage = "An unexpected error occurred";
+  if (error instanceof Error) {
+    const msg = error.message;
+    if (
+      msg.startsWith("Failed query:") ||
+      msg.includes("violates") ||       // Postgres constraint errors
+      msg.includes("duplicate key") ||
+      msg.includes("foreign key")
+    ) {
+      // Log full error on server, return generic message to client
+      safeMessage = "An unexpected error occurred. Please try again.";
+    } else {
+      // App-level errors (e.g. "This vehicle is already booked") are safe to forward
+      safeMessage = msg;
+    }
+  }
+
   return Response.json(
     {
       error: {
         code: "INTERNAL_ERROR",
-        message:
-          error instanceof Error ? error.message : "An unexpected error occurred",
+        message: safeMessage,
       },
     },
     { status: 500 }

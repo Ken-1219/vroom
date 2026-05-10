@@ -6,7 +6,8 @@ import { pricingService } from "@/services/pricing";
 import { auth } from "@/lib/auth";
 import { bearerAuth } from "@/lib/bearer-auth";
 import { db } from "@/lib/db";
-import { users } from "@vroom/db/schema";
+import { users, bookings } from "@vroom/db/schema";
+import { eq, and, lt } from "drizzle-orm";
 import { ApiError, errorResponse } from "@/lib/api-error";
 import { registerEventHandlers } from "@/lib/event-handlers";
 
@@ -22,25 +23,62 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Upsert-style: if user exists by ID → skip. If email conflict → also skip.
-    // This handles the case where an OAuth user exists with the same email but a different session ID.
-    await (db as any)
-      .insert(users)
-      .values({
+    // Resolve the effective user ID that actually exists in the DB.
+    // If the same Google account logs in across sessions it may get different
+    // session IDs — we always look up by email first so the FK on bookings works.
+    let effectiveUserId = currentUser.id;
+    const byEmail = await (db as any)
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, currentUser.email!))
+      .limit(1) as { id: string }[];
+
+    if (byEmail.length > 0) {
+      // User already exists — use the stable ID from the DB
+      effectiveUserId = byEmail[0]!.id;
+    } else {
+      // Truly new user — insert them
+      await (db as any).insert(users).values({
         id: currentUser.id,
         email: currentUser.email,
         name: currentUser.name ?? currentUser.email,
         role: currentUser.role ?? "renter",
         avatarUrl: (currentUser as any).image ?? null,
         emailVerified: true,
-      })
-      .onConflictDoNothing();
+      }).onConflictDoNothing();
+      // Re-read in case of a race (two requests hitting this path simultaneously)
+      const inserted = await (db as any)
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, currentUser.email!))
+        .limit(1) as { id: string }[];
+      if (inserted.length > 0) effectiveUserId = inserted[0]!.id;
+    }
 
     const body = await request.json();
     const parsed = createBookingSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(parsed.error);
     }
+
+    // Auto-expire stale pending bookings (>15 min, never paid) for this vehicle
+    // so they don't permanently block availability when a user abandoned checkout.
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    await (db as any)
+      .update(bookings)
+      .set({
+        status: "cancelled",
+        cancelledBy: "system",
+        cancellationReason: "Booking expired — payment not completed",
+        cancelledAt: new Date(),
+      })
+      .where(
+        and(
+          eq(bookings.vehicleId, parsed.data.vehicleId),
+          eq(bookings.status, "pending"),
+          lt(bookings.createdAt, fifteenMinutesAgo)
+        )
+      );
 
     const vehicle = await vehicleService.getById(parsed.data.vehicleId);
     if (!vehicle) {
@@ -69,7 +107,7 @@ export async function POST(request: NextRequest) {
         priceBreakdown: breakdown as unknown as Record<string, unknown>,
         currency: vehicle.currency,
       },
-      currentUser.id,
+      effectiveUserId,
       vehicle.hostId
     );
 
