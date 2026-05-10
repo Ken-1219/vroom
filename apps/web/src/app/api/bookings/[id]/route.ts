@@ -6,6 +6,7 @@ import { bearerAuth } from "@/lib/bearer-auth";
 import { ApiError, errorResponse } from "@/lib/api-error";
 import { bookingActionSchema } from "@vroom/validators";
 import { registerEventHandlers } from "@/lib/event-handlers";
+import { resolveUserId } from "@/lib/resolve-user-id";
 
 registerEventHandlers();
 
@@ -26,14 +27,15 @@ export async function GET(
   try {
     const booking = await bookingService.getById(id);
     if (!booking) {
-      return errorResponse(
-        new ApiError(404, "NOT_FOUND", "Booking not found")
-      );
+      return errorResponse(new ApiError(404, "NOT_FOUND", "Booking not found"));
     }
 
+    // Resolve stable DB user ID — session ID can differ from stored renterId
+    const userId = await resolveUserId(currentUser.id, currentUser.email);
+
     if (
-      booking.renterId !== currentUser.id &&
-      booking.hostId !== currentUser.id &&
+      booking.renterId !== userId &&
+      booking.hostId !== userId &&
       currentUser.role !== "admin"
     ) {
       return errorResponse(new ApiError(403, "FORBIDDEN", "Forbidden"));
@@ -73,13 +75,14 @@ export async function PATCH(
 
     const booking = await bookingService.getById(id);
     if (!booking) {
-      return errorResponse(
-        new ApiError(404, "NOT_FOUND", "Booking not found")
-      );
+      return errorResponse(new ApiError(404, "NOT_FOUND", "Booking not found"));
     }
 
-    const isRenter = booking.renterId === currentUser.id;
-    const isHost = booking.hostId === currentUser.id;
+    // Resolve stable DB user ID — session ID can differ from stored renterId/hostId
+    const userId = await resolveUserId(currentUser.id, currentUser.email);
+
+    const isRenter = booking.renterId === userId;
+    const isHost = booking.hostId === userId;
     const isAdmin = currentUser.role === "admin";
 
     if (!isRenter && !isHost && !isAdmin) {
