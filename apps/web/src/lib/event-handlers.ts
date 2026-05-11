@@ -41,10 +41,16 @@ export function registerEventHandlers() {
   eventBus.subscribe("booking.confirmed", async (data) => {
     const otp = generateOtp();
 
-    await (db as any)
+    const otpUpdated = await (db as any)
       .update(bookings)
       .set({ pickupOtp: otp })
-      .where(eq(bookings.id, data.bookingId));
+      .where(eq(bookings.id, data.bookingId))
+      .returning() as { id: string }[];
+
+    if (otpUpdated.length === 0) {
+      console.error(`[CRITICAL] Failed to persist pickup OTP for booking ${data.bookingId}`);
+      return;
+    }
 
     await notificationService.send({
       userId: data.renterId,

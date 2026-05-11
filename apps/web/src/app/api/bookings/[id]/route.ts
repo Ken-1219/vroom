@@ -94,7 +94,7 @@ export async function PATCH(
         const reason = parsed.data.reason ?? "Cancelled by user";
         const updated = await bookingService.cancel(
           id,
-          currentUser.id,
+          userId,
           reason
         );
         return NextResponse.json(updated);
@@ -105,7 +105,7 @@ export async function PATCH(
             new ApiError(403, "FORBIDDEN", "Only the host can accept bookings")
           );
         }
-        const updated = await bookingService.accept(id, currentUser.id);
+        const updated = await bookingService.accept(id, userId);
         return NextResponse.json(updated);
       }
       case "reject": {
@@ -117,7 +117,7 @@ export async function PATCH(
         const reason = parsed.data.reason ?? "Rejected by host";
         const updated = await bookingService.reject(
           id,
-          currentUser.id,
+          userId,
           reason
         );
         return NextResponse.json(updated);

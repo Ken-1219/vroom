@@ -88,7 +88,7 @@ export class PricingService {
       baseRate: dailyRate,
       weekdayTotal,
       weekendTotal,
-      subtotal: weekdayTotal + weekendTotal,
+      subtotal,
       weeklyDiscount,
       monthlyDiscount,
       protectionFee,

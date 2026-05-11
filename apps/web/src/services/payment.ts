@@ -11,6 +11,13 @@ export class PaymentService {
     currency: string,
     userId: string
   ) {
+    // Return existing pending order if one exists (handles frontend retries)
+    const existing = await this.getByBookingId(bookingId);
+    const pendingPayment = existing.find((p) => p.status === "pending" && p.type === "charge");
+    if (pendingPayment?.gatewayReference) {
+      return { orderId: pendingPayment.gatewayReference, paymentRecord: pendingPayment };
+    }
+
     const razorpay = getRazorpay();
 
     const order = await razorpay.orders.create({
@@ -20,7 +27,7 @@ export class PaymentService {
       notes: { bookingId, userId },
     });
 
-    const idempotencyKey = `order_${bookingId}_${Date.now()}`;
+    const idempotencyKey = `order_${bookingId}_${order.id}`;
 
     const result = (await (db as any)
       .insert(payments)
@@ -46,6 +53,14 @@ export class PaymentService {
     razorpayOrderId: string,
     razorpaySignature: string
   ) {
+    // Idempotency: return early if this payment was already captured
+    const existing = await this.getByBookingId(bookingId);
+    const alreadyCaptured = existing.find(
+      (p) => p.status === "captured" && p.type === "charge" &&
+             (p.metadata as any)?.paymentId === razorpayPaymentId
+    );
+    if (alreadyCaptured) return alreadyCaptured;
+
     const isValid = verifyPaymentSignature(
       razorpayOrderId,
       razorpayPaymentId,

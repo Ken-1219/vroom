@@ -38,7 +38,9 @@ export const createBookingSchema = z
     dropoffLatitude: z.number().min(-90).max(90).optional(),
     dropoffLongitude: z.number().min(-180).max(180).optional(),
     dropoffAddress: z.string().optional(),
+    protectionPlan: z.enum(["basic", "standard", "premium"]).default("basic"),
     couponCode: z.string().optional(),
+    notes: z.string().max(500).optional(),
     addons: z
       .array(
         z.object({ type: z.string(), quantity: z.number().int().positive() })

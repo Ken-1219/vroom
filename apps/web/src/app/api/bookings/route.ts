@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       return errorResponse(new ApiError(404, "NOT_FOUND", "Vehicle not found"));
     }
 
-    const protectionPlan = (body.protectionPlan as "basic" | "standard" | "premium") ?? "basic";
+    const protectionPlan = parsed.data.protectionPlan;
 
     const breakdown = pricingService.calculateEstimate({
       vehicle,

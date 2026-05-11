@@ -228,7 +228,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args.maxPricePerDay) params.set("maxPrice", String(Number(args.maxPricePerDay) * 100));
         params.set("limit", String(Math.min(Number(args.limit ?? 10), 20)));
 
-        const data = await vroomFetch(`/api/vehicles?${params}`);
+        const data = await vroomFetch(`/api/vehicles/search?${params}`);
         const vehicles = (data as any).vehicles ?? data;
         return {
           content: [
@@ -375,7 +375,7 @@ function paise(amount: number) {
 
 function normalizeDate(d: string): string {
   if (d.includes("T")) return d;
-  return `${d}T00:00:00.000Z`;
+  return `${d}T00:00:00.000+05:30`;
 }
 
 function formatVehicleList(vehicles: unknown): string {
