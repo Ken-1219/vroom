@@ -385,6 +385,7 @@ export async function POST(req: Request) {
               });
               const newBooking = await bookingService.create({
                 vehicleId: input.vehicleId, startDate: input.startDate, endDate: input.endDate,
+                protectionPlan: "basic",
                 totalAmount: breakdown.total,
                 priceBreakdown: {
                   days: breakdown.days, baseRate: breakdown.baseRate,
