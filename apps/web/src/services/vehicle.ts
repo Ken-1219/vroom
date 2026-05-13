@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { vehicles, bookings, type Vehicle } from "@vroom/db/schema";
+import { vehicles, bookings, vehicleAvailability, type Vehicle } from "@vroom/db/schema";
 import { eq, and, gte, lte, ilike, sql, or, desc, asc, notExists, lt, gt } from "drizzle-orm";
 import type { VehicleSearchParams } from "@vroom/validators";
 
@@ -53,9 +53,13 @@ export class VehicleService {
     if (params.startDate && params.endDate) {
       const start = new Date(params.startDate);
       const end = new Date(params.endDate);
+      const startDateStr = start.toISOString().split("T")[0]!;
+      const endDateStr = end.toISOString().split("T")[0]!;
+
+      // Exclude vehicles with overlapping confirmed/active bookings
       conditions.push(
         notExists(
-          (db as any)
+          db
             .select({ one: sql`1` })
             .from(bookings)
             .where(
@@ -68,9 +72,47 @@ export class VehicleService {
             )
         )
       );
+
+      // Exclude vehicles with overlapping blocked/maintenance periods
+      conditions.push(
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(vehicleAvailability)
+            .where(
+              and(
+                eq(vehicleAvailability.vehicleId, vehicles.id),
+                lt(vehicleAvailability.startDate, endDateStr),
+                gt(vehicleAvailability.endDate, startDateStr)
+              )
+            )
+        )
+      );
+    }
+
+    // Spatial filtering: use earthdistance GiST index for bounding-box pre-filter,
+    // then exact earth_distance check for circle radius.
+    const hasLocation = params.latitude != null && params.longitude != null;
+    if (hasLocation && params.radiusKm) {
+      const radiusMeters = params.radiusKm * 1000;
+      const lat = params.latitude!;
+      const lng = params.longitude!;
+      // Bounding-box pre-filter (uses GiST index idx_vehicles_location)
+      conditions.push(
+        sql`earth_box(ll_to_earth(${lat}, ${lng}), ${radiusMeters}) @> ll_to_earth(${vehicles.latitude}::float8, ${vehicles.longitude}::float8)`
+      );
+      // Exact distance check within the circle
+      conditions.push(
+        sql`earth_distance(ll_to_earth(${lat}, ${lng}), ll_to_earth(${vehicles.latitude}::float8, ${vehicles.longitude}::float8)) <= ${radiusMeters}`
+      );
     }
 
     const offset = (params.page - 1) * params.limit;
+
+    // Computed distance column (in km) when location is provided
+    const distanceColumn = hasLocation
+      ? sql<number>`(earth_distance(ll_to_earth(${params.latitude!}, ${params.longitude!}), ll_to_earth(${vehicles.latitude}::float8, ${vehicles.longitude}::float8)) / 1000)`.as("distance_km")
+      : sql<null>`null`.as("distance_km");
 
     let orderBy;
     switch (params.sortBy) {
@@ -81,8 +123,9 @@ export class VehicleService {
         orderBy = desc(vehicles.ratingAvg);
         break;
       case "distance":
-        // For distance sorting, we need lat/lng — fallback to relevance
-        orderBy = desc(vehicles.tripCount);
+        orderBy = hasLocation
+          ? asc(sql`earth_distance(ll_to_earth(${params.latitude!}, ${params.longitude!}), ll_to_earth(${vehicles.latitude}::float8, ${vehicles.longitude}::float8))`)
+          : desc(vehicles.tripCount);
         break;
       case "relevance":
       default:
@@ -91,43 +134,26 @@ export class VehicleService {
     }
 
     const [results, countResult] = await Promise.all([
-      (db as any)
-        .select()
+      db
+        .select({
+          vehicle: vehicles,
+          distanceKm: distanceColumn,
+        })
         .from(vehicles)
         .where(and(...conditions))
         .orderBy(orderBy)
         .limit(params.limit)
-        .offset(offset) as Promise<Vehicle[]>,
-      (db as any)
+        .offset(offset),
+      db
         .select({ count: sql<number>`count(*)` })
         .from(vehicles)
         .where(and(...conditions)) as Promise<{ count: number }[]>,
     ]);
 
-    // If lat/lng provided, compute distances and re-sort
-    let enrichedResults = results.map((v) => {
-      let distanceKm: number | null = null;
-      if (params.latitude && params.longitude) {
-        distanceKm = haversineDistance(
-          params.latitude,
-          params.longitude,
-          Number(v.latitude),
-          Number(v.longitude)
-        );
-      }
-      return { ...v, distanceKm };
-    });
-
-    if (params.sortBy === "distance" && params.latitude && params.longitude) {
-      enrichedResults.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
-    }
-
-    // Filter by radius if provided
-    if (params.latitude && params.longitude && params.radiusKm) {
-      enrichedResults = enrichedResults.filter(
-        (v) => v.distanceKm !== null && v.distanceKm <= params.radiusKm
-      );
-    }
+    const enrichedResults = results.map((row) => ({
+      ...row.vehicle,
+      distanceKm: row.distanceKm != null ? Number(row.distanceKm) : null,
+    }));
 
     return {
       vehicles: enrichedResults,
@@ -139,7 +165,7 @@ export class VehicleService {
   }
 
   async getById(id: string): Promise<Vehicle | null> {
-    const result = (await (db as any)
+    const result = (await db
       .select()
       .from(vehicles)
       .where(eq(vehicles.id, id))
@@ -149,7 +175,7 @@ export class VehicleService {
   }
 
   async getCities(): Promise<Array<{ city: string; vehicleCount: number; startingPrice: number }>> {
-    const result = (await (db as any)
+    const result = (await db
       .select({
         city: vehicles.city,
         vehicleCount: sql<number>`count(*)`,
@@ -168,7 +194,7 @@ export class VehicleService {
   }
 
   async getByHost(hostId: string): Promise<Vehicle[]> {
-    return (db as any)
+    return db
       .select()
       .from(vehicles)
       .where(eq(vehicles.hostId, hostId))
@@ -176,10 +202,10 @@ export class VehicleService {
   }
 
   async create(input: Record<string, unknown>, hostId: string): Promise<Vehicle> {
-    const result = (await (db as any)
+    const result = (await db
       .insert(vehicles)
       .values({
-        ...input,
+        ...(input as any),
         hostId,
         latitude: String(input.latitude),
         longitude: String(input.longitude),
@@ -198,7 +224,7 @@ export class VehicleService {
     if (input.latitude !== undefined) updates.latitude = String(input.latitude);
     if (input.longitude !== undefined) updates.longitude = String(input.longitude);
 
-    const result = (await (db as any)
+    const result = (await db
       .update(vehicles)
       .set(updates)
       .where(eq(vehicles.id, id))
@@ -206,12 +232,12 @@ export class VehicleService {
     return result[0]!;
   }
 
-  async updateStatus(id: string, hostId: string, status: string): Promise<Vehicle> {
+  async updateStatus(id: string, hostId: string, status: "draft" | "listed" | "delisted"): Promise<Vehicle> {
     const vehicle = await this.getById(id);
     if (!vehicle) throw new Error("Vehicle not found");
     if (vehicle.hostId !== hostId) throw new Error("Not authorized");
 
-    const result = (await (db as any)
+    const result = (await db
       .update(vehicles)
       .set({ status, updatedAt: new Date() })
       .where(eq(vehicles.id, id))
@@ -221,14 +247,14 @@ export class VehicleService {
 
   async getHostStats(hostId: string) {
     const [vehicleRows, bookingRows] = await Promise.all([
-      (db as any)
+      db
         .select({
           total: sql<number>`count(*)`,
           listed: sql<number>`count(*) filter (where ${vehicles.status} = 'listed')`,
         })
         .from(vehicles)
         .where(eq(vehicles.hostId, hostId)) as Promise<Array<{ total: number; listed: number }>>,
-      (db as any)
+      db
         .select({
           total: sql<number>`count(*)`,
           pending: sql<number>`count(*) filter (where ${bookings.status} = 'pending')`,
@@ -252,29 +278,6 @@ export class VehicleService {
       },
     };
   }
-}
-
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function toRad(deg: number): number {
-  return (deg * Math.PI) / 180;
 }
 
 export const vehicleService = new VehicleService();

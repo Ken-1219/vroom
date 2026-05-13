@@ -10,6 +10,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { bookings } from "./bookings";
+import { tripStatusEnum } from "./enums";
 
 export const trips = pgTable("trips", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -17,7 +18,7 @@ export const trips = pgTable("trips", {
     .references(() => bookings.id)
     .unique()
     .notNull(),
-  status: varchar("status", { length: 20 }).default("pending"),
+  status: tripStatusEnum("status").default("pending"),
   actualStart: timestamp("actual_start", { withTimezone: true }),
   actualEnd: timestamp("actual_end", { withTimezone: true }),
   startOdometer: integer("start_odometer"),

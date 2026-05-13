@@ -11,12 +11,13 @@ import {
   bigserial,
   index,
 } from "drizzle-orm/pg-core";
+import { pricingScopeEnum, pricingRuleTypeEnum, vehicleTypeEnum } from "./enums";
 
 export const pricingRules = pgTable("pricing_rules", {
   id: uuid("id").primaryKey().defaultRandom(),
-  scope: varchar("scope", { length: 20 }).notNull(), // global, country, city, vehicle_type, vehicle
+  scope: pricingScopeEnum("scope").notNull(),
   scopeValue: varchar("scope_value", { length: 100 }),
-  ruleType: varchar("rule_type", { length: 30 }).notNull(), // demand_surge, weekend, seasonal, event, time_decay
+  ruleType: pricingRuleTypeEnum("rule_type").notNull(),
   conditions: jsonb("conditions").notNull(),
   multiplier: numeric("multiplier", { precision: 3, scale: 2 }).notNull(),
   priority: integer("priority").default(0),
@@ -31,7 +32,7 @@ export const demandSnapshots = pgTable(
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     h3Index: varchar("h3_index", { length: 20 }).notNull(),
-    vehicleType: varchar("vehicle_type", { length: 20 }),
+    vehicleType: vehicleTypeEnum("vehicle_type"),
     demandScore: numeric("demand_score", { precision: 3, scale: 2 }),
     supplyCount: integer("supply_count"),
     bookedCount: integer("booked_count"),

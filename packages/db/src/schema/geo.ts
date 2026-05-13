@@ -9,6 +9,7 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
+import { geofenceTypeEnum } from "./enums";
 
 export const pickupPoints = pgTable(
   "pickup_points",
@@ -28,7 +29,7 @@ export const pickupPoints = pgTable(
 export const geofences = pgTable("geofences", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
-  type: varchar("type", { length: 20 }).notNull(), // operating_zone, restricted_zone
+  type: geofenceTypeEnum("type").notNull(),
   // Boundary stored as GeoJSON string — parsed with PostGIS or app-level
   boundary: jsonb("boundary").notNull(),
   city: varchar("city", { length: 100 }).notNull(),

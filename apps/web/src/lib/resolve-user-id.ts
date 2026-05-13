@@ -19,7 +19,7 @@ export async function resolveUserId(
   if (!email) return sessionId;
 
   try {
-    const rows = await (db as any)
+    const rows = await db
       .select({ id: users.id })
       .from(users)
       .where(eq(users.email, email))

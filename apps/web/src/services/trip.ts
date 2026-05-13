@@ -1,12 +1,11 @@
 import { db } from "@/lib/db";
-import { trips, tripLocations, bookings, type Trip, type TripLocation } from "@vroom/db/schema";
+import { trips, tripLocations, bookings, outboxEvents, type Trip, type TripLocation } from "@vroom/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { eventBus } from "@vroom/events";
 import type { StartTripInput, EndTripInput, TripLocationInput } from "@vroom/validators";
 
 export class TripService {
   async start(input: StartTripInput, hostId: string): Promise<Trip> {
-    const booking = (await (db as any)
+    const booking = (await db
       .select()
       .from(bookings)
       .where(eq(bookings.id, input.bookingId))
@@ -17,14 +16,14 @@ export class TripService {
     if (b.hostId !== hostId) throw new Error("Not authorized");
     if (b.status !== "confirmed") throw new Error("Booking must be confirmed to start trip");
 
-    const existing = (await (db as any)
+    const existing = (await db
       .select({ id: trips.id })
       .from(trips)
       .where(eq(trips.bookingId, input.bookingId))
       .limit(1)) as { id: string }[];
     if (existing.length > 0) throw new Error("Trip already started for this booking");
 
-    const trip = (await (db as any)
+    const trip = (await db
       .insert(trips)
       .values({
         bookingId: input.bookingId,
@@ -36,7 +35,7 @@ export class TripService {
       })
       .returning()) as Trip[];
 
-    await (db as any)
+    await db
       .update(bookings)
       .set({
         status: "active",
@@ -46,9 +45,12 @@ export class TripService {
 
     const created = trip[0]!;
 
-    eventBus.publish("trip.started", {
-      tripId: created.id,
-      bookingId: input.bookingId,
+    await db.insert(outboxEvents).values({
+      eventType: "trip.started",
+      payload: {
+        tripId: created.id,
+        bookingId: input.bookingId,
+      },
     });
 
     return created;
@@ -59,7 +61,7 @@ export class TripService {
     if (!trip) throw new Error("Trip not found");
     if (trip.status !== "active") throw new Error("Trip is not active");
 
-    const booking = (await (db as any)
+    const booking = (await db
       .select()
       .from(bookings)
       .where(eq(bookings.id, trip.bookingId))
@@ -67,7 +69,7 @@ export class TripService {
 
     if (!booking[0] || booking[0].hostId !== hostId) throw new Error("Not authorized");
 
-    const updated = (await (db as any)
+    const updated = (await db
       .update(trips)
       .set({
         status: "completed",
@@ -79,7 +81,7 @@ export class TripService {
       .where(eq(trips.id, tripId))
       .returning()) as Trip[];
 
-    await (db as any)
+    await db
       .update(bookings)
       .set({
         status: "completed",
@@ -87,16 +89,19 @@ export class TripService {
       })
       .where(eq(bookings.id, trip.bookingId));
 
-    eventBus.publish("trip.completed", {
-      tripId,
-      bookingId: trip.bookingId,
+    await db.insert(outboxEvents).values({
+      eventType: "trip.completed",
+      payload: {
+        tripId,
+        bookingId: trip.bookingId,
+      },
     });
 
     return updated[0]!;
   }
 
   async getById(id: string): Promise<Trip | null> {
-    const result = (await (db as any)
+    const result = (await db
       .select()
       .from(trips)
       .where(eq(trips.id, id))
@@ -105,7 +110,7 @@ export class TripService {
   }
 
   async getByBooking(bookingId: string): Promise<Trip | null> {
-    const result = (await (db as any)
+    const result = (await db
       .select()
       .from(trips)
       .where(eq(trips.bookingId, bookingId))
@@ -114,7 +119,7 @@ export class TripService {
   }
 
   async addLocation(tripId: string, input: TripLocationInput): Promise<TripLocation> {
-    const locations = (await (db as any)
+    const locations = (await db
       .insert(tripLocations)
       .values({
         tripId,
@@ -129,7 +134,7 @@ export class TripService {
   }
 
   async getLocations(tripId: string): Promise<TripLocation[]> {
-    return (db as any)
+    return db
       .select()
       .from(tripLocations)
       .where(eq(tripLocations.tripId, tripId))

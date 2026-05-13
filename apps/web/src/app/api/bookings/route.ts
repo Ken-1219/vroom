@@ -29,11 +29,11 @@ export async function POST(request: NextRequest) {
 
     // If this is a new user not yet in the DB, insert them
     if (effectiveUserId === currentUser.id) {
-      await (db as any).insert(users).values({
+      await db.insert(users).values({
         id: currentUser.id,
         email: currentUser.email,
         name: currentUser.name ?? currentUser.email,
-        role: currentUser.role ?? "renter",
+        role: (currentUser.role ?? "renter") as "renter" | "host" | "admin",
         avatarUrl: (currentUser as any).image ?? null,
         emailVerified: true,
       }).onConflictDoNothing();
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Auto-expire stale pending bookings (>15 min, never paid) for this vehicle
     // so they don't permanently block availability when a user abandoned checkout.
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-    await (db as any)
+    await db
       .update(bookings)
       .set({
         status: "cancelled",

@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
+import { getCachedAiResponse, setCachedAiResponse, makeCacheKey } from "@/lib/ai-cache";
 
 export async function POST(request: NextRequest) {
   try {
     const { query } = await request.json();
     if (!query || typeof query !== "string") {
       return NextResponse.json({ error: "Missing query" }, { status: 400 });
+    }
+
+    // Check cache first
+    const cacheKey = makeCacheKey("nl-search", { query: query.trim().toLowerCase() });
+    const cached = await getCachedAiResponse<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
     }
 
     const { text } = await generateText({
@@ -38,6 +46,10 @@ Only include fields that are clearly mentioned. Example response:
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
+
+    // Cache the result for 1 hour
+    await setCachedAiResponse(cacheKey, parsed, 3600);
+
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("[nl-search]", err);

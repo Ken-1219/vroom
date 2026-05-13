@@ -18,13 +18,15 @@
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
     "drizzle-orm": "^0.44.0",
-    "h3-js": "^4.2.1"
+    "h3-js": "^4.2.1",
+    "ws": "^8.20.1"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "dotenv": "^16.4.0",
     "drizzle-kit": "^0.31.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0",
-    "dotenv": "^16.4.0"
+    "typescript": "^5.7.0"
   }
 }

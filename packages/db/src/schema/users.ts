@@ -9,6 +9,7 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
+import { userRoleEnum, userStatusEnum } from "./enums";
 
 export const users = pgTable(
   "users",
@@ -18,11 +19,11 @@ export const users = pgTable(
     phone: varchar("phone", { length: 20 }).unique(),
     name: varchar("name", { length: 255 }).notNull(),
     avatarUrl: text("avatar_url"),
-    role: varchar("role", { length: 20 }).notNull().default("renter"),
+    role: userRoleEnum("role").notNull().default("renter"),
     trustScore: numeric("trust_score", { precision: 3, scale: 2 }).default(
       "0.50"
     ),
-    status: varchar("status", { length: 20 }).default("active"),
+    status: userStatusEnum("status").default("active"),
     emailVerified: boolean("email_verified").default(false),
     phoneVerified: boolean("phone_verified").default(false),
     documents: jsonb("documents").default([]),

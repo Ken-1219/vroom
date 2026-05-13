@@ -49,8 +49,18 @@ const tools: Tool[] = [
         },
         vehicleType: {
           type: "string",
-          enum: ["car", "suv", "luxury", "ev", "bike", "van"],
+          enum: ["sedan", "suv", "hatchback", "luxury", "ev", "mpv"],
           description: "Type of vehicle to search for",
+        },
+        fuelType: {
+          type: "string",
+          enum: ["petrol", "diesel", "electric", "hybrid", "cng"],
+          description: "Fuel type filter",
+        },
+        transmission: {
+          type: "string",
+          enum: ["manual", "automatic"],
+          description: "Transmission type filter",
         },
         startDate: {
           type: "string",
@@ -223,6 +233,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const params = new URLSearchParams();
         if (args.city) params.set("city", String(args.city));
         if (args.vehicleType) params.set("vehicleType", String(args.vehicleType));
+        if (args.fuelType) params.set("fuelType", String(args.fuelType));
+        if (args.transmission) params.set("transmission", String(args.transmission));
         if (args.startDate) params.set("startDate", String(args.startDate));
         if (args.endDate) params.set("endDate", String(args.endDate));
         if (args.maxPricePerDay) params.set("maxPrice", String(Number(args.maxPricePerDay) * 100));

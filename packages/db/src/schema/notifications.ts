@@ -9,6 +9,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
+import { notificationChannelEnum } from "./enums";
 
 export const notifications = pgTable(
   "notifications",
@@ -21,7 +22,7 @@ export const notifications = pgTable(
     title: varchar("title", { length: 255 }).notNull(),
     body: text("body").notNull(),
     data: jsonb("data"),
-    channel: varchar("channel", { length: 20 }).notNull(), // in_app, email
+    channel: notificationChannelEnum("channel").notNull(),
     read: boolean("read").default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { vehicleService } from "@/services/vehicle";
 import { auth } from "@/lib/auth";
 import { ApiError, errorResponse } from "@/lib/api-error";
+import { updateVehicleSchema } from "@vroom/validators";
+import { z } from "zod";
+
+const vehicleStatusSchema = z.object({
+  status: z.enum(["listed", "delisted", "draft"]),
+});
 
 export async function GET(
   _request: NextRequest,
@@ -33,7 +39,11 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const vehicle = await vehicleService.update(id, session.user.id, body);
+    const parsed = updateVehicleSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error);
+    }
+    const vehicle = await vehicleService.update(id, session.user.id, parsed.data);
     return NextResponse.json(vehicle);
   } catch (error) {
     return errorResponse(error);
@@ -53,15 +63,12 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { status } = body;
-
-    if (!status || !["listed", "delisted", "draft"].includes(status)) {
-      return errorResponse(
-        new ApiError(400, "VALIDATION_ERROR", "Invalid status. Use: listed, delisted, or draft")
-      );
+    const parsed = vehicleStatusSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error);
     }
 
-    const vehicle = await vehicleService.updateStatus(id, session.user.id, status);
+    const vehicle = await vehicleService.updateStatus(id, session.user.id, parsed.data.status);
     return NextResponse.json(vehicle);
   } catch (error) {
     return errorResponse(error);

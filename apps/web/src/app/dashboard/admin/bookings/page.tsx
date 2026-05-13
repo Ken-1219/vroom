@@ -19,7 +19,7 @@ export default async function AdminBookingsPage({
   const params = await searchParams;
   const statusFilter = params.status ?? "";
 
-  let query = (db as any)
+  const baseQuery = db
     .select({
       booking: bookings,
       vehicleMake: vehicles.make,
@@ -30,11 +30,11 @@ export default async function AdminBookingsPage({
     .leftJoin(vehicles, eq(bookings.vehicleId, vehicles.id))
     .leftJoin(users, eq(bookings.renterId, users.id));
 
-  if (statusFilter) {
-    query = query.where(eq(bookings.status, statusFilter));
-  }
+  const withFilter = statusFilter
+    ? baseQuery.where(eq(bookings.status, statusFilter as "pending" | "confirmed" | "active" | "completed" | "cancelled"))
+    : baseQuery;
 
-  const rows = (await query.orderBy(desc(bookings.createdAt)).limit(200)) as {
+  const rows = (await withFilter.orderBy(desc(bookings.createdAt)).limit(200)) as {
     booking: typeof bookings.$inferSelect;
     vehicleMake: string | null;
     vehicleModel: string | null;

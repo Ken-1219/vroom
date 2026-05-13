@@ -5,13 +5,9 @@ import { paymentService } from "@/services/payment";
 import { verifyPaymentSchema } from "@vroom/validators";
 import { ApiError, errorResponse } from "@/lib/api-error";
 import { db } from "@/lib/db";
-import { bookings, bookingEvents } from "@vroom/db/schema";
+import { bookings, bookingEvents, outboxEvents } from "@vroom/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { eventBus } from "@vroom/events";
-import { registerEventHandlers } from "@/lib/event-handlers";
 import { resolveUserId } from "@/lib/resolve-user-id";
-
-registerEventHandlers();
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -52,7 +48,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Update booking to confirmed
-    const updated = await (db as any)
+    const updated = await db
       .update(bookings)
       .set({
         status: "confirmed",
@@ -67,7 +63,7 @@ export async function POST(request: NextRequest) {
       .returning();
 
     if (updated.length > 0) {
-      await (db as any).insert(bookingEvents).values({
+      await db.insert(bookingEvents).values({
         bookingId,
         eventType: "payment_captured",
         data: {
@@ -78,11 +74,14 @@ export async function POST(request: NextRequest) {
         actorType: "user",
       });
 
-      eventBus.publish("booking.confirmed", {
-        bookingId,
-        vehicleId: booking.vehicleId,
-        renterId: booking.renterId,
-        hostId: booking.hostId,
+      await db.insert(outboxEvents).values({
+        eventType: "booking.confirmed",
+        payload: {
+          bookingId,
+          vehicleId: booking.vehicleId,
+          renterId: booking.renterId,
+          hostId: booking.hostId,
+        },
       });
     }
 

@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { vehicles } from "./vehicles";
+import { bookingStatusEnum, actorTypeEnum } from "./enums";
 
 export const bookings = pgTable(
   "bookings",
@@ -26,7 +27,7 @@ export const bookings = pgTable(
       .references(() => users.id)
       .notNull(),
 
-    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    status: bookingStatusEnum("status").notNull().default("pending"),
 
     startDate: timestamp("start_date", { withTimezone: true }).notNull(),
     endDate: timestamp("end_date", { withTimezone: true }).notNull(),
@@ -74,7 +75,7 @@ export const bookingEvents = pgTable(
     eventType: varchar("event_type", { length: 50 }).notNull(),
     data: jsonb("data").notNull(),
     actorId: uuid("actor_id"),
-    actorType: varchar("actor_type", { length: 20 }),
+    actorType: actorTypeEnum("actor_type"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [

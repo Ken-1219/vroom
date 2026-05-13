@@ -1,13 +1,11 @@
 import { db } from "@/lib/db";
-import { reviews, type Review } from "@vroom/db/schema";
-import { vehicles } from "@vroom/db/schema";
+import { reviews, vehicles, outboxEvents, type Review } from "@vroom/db/schema";
 import { eq, and, desc, sql, avg, count } from "drizzle-orm";
-import { eventBus } from "@vroom/events";
 import type { CreateReviewInput } from "@vroom/validators";
 
 export class ReviewService {
   async create(input: CreateReviewInput, reviewerId: string): Promise<Review> {
-    const review = (await (db as any)
+    const review = (await db
       .insert(reviews)
       .values({
         bookingId: input.bookingId,
@@ -28,18 +26,21 @@ export class ReviewService {
       await this.updateVehicleRating(input.vehicleId);
     }
 
-    eventBus.publish("review.created", {
-      reviewId: created.id,
-      bookingId: input.bookingId,
-      vehicleId: input.vehicleId ?? null,
-      rating: input.rating,
+    await db.insert(outboxEvents).values({
+      eventType: "review.created",
+      payload: {
+        reviewId: created.id,
+        bookingId: input.bookingId,
+        vehicleId: input.vehicleId ?? null,
+        rating: input.rating,
+      },
     });
 
     return created;
   }
 
   async getByVehicle(vehicleId: string, limit = 20, offset = 0) {
-    const rows = (await (db as any)
+    const rows = (await db
       .select()
       .from(reviews)
       .where(and(eq(reviews.vehicleId, vehicleId), eq(reviews.status, "published")))
@@ -47,7 +48,7 @@ export class ReviewService {
       .limit(limit)
       .offset(offset)) as Review[];
 
-    const statsResult = (await (db as any)
+    const statsResult = (await db
       .select({ total: count(), avgRating: avg(reviews.rating) })
       .from(reviews)
       .where(
@@ -63,7 +64,7 @@ export class ReviewService {
   }
 
   async getByBooking(bookingId: string): Promise<Review[]> {
-    return (db as any)
+    return db
       .select()
       .from(reviews)
       .where(eq(reviews.bookingId, bookingId))
@@ -71,7 +72,7 @@ export class ReviewService {
   }
 
   async hasReviewed(bookingId: string, reviewerId: string): Promise<boolean> {
-    const rows = (await (db as any)
+    const rows = (await db
       .select({ id: reviews.id })
       .from(reviews)
       .where(
@@ -82,7 +83,7 @@ export class ReviewService {
   }
 
   private async updateVehicleRating(vehicleId: string) {
-    const result = (await (db as any)
+    const result = (await db
       .select({
         avgRating: avg(reviews.rating),
         reviewCount: count(),
@@ -94,7 +95,7 @@ export class ReviewService {
 
     const stats = result[0];
     if (stats) {
-      await (db as any)
+      await db
         .update(vehicles)
         .set({
           ratingAvg: stats.avgRating ?? "0",

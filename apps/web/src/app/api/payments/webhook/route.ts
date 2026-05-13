@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { paymentService } from "@/services/payment";
 import { verifyWebhookSignature } from "@/lib/razorpay";
+import { registerEventHandlers } from "@/lib/event-handlers";
+
+registerEventHandlers();
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,10 +19,15 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Invalid signature" }, { status: 401 });
     }
 
-    const payload = JSON.parse(body);
-    const event = payload.event;
+    const raw = JSON.parse(body);
+    const event = raw?.event;
+    const payload = raw?.payload;
 
-    await paymentService.handleWebhookEvent(event, payload.payload);
+    if (!event || typeof event !== "string" || !payload) {
+      return Response.json({ error: "Invalid webhook payload" }, { status: 400 });
+    }
+
+    await paymentService.handleWebhookEvent(event, payload);
 
     return Response.json({ status: "ok" });
   } catch (error) {

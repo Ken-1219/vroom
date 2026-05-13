@@ -59,6 +59,7 @@ class TypedEventBus {
     this.emitter.setMaxListeners(50);
   }
 
+  /** Dispatch an event locally (used by the outbox processor to invoke registered handlers). */
   publish<E extends EventName>(event: E, data: EventMap[E]): void {
     this.emitter.emit(event, data);
   }

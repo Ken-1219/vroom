@@ -1,8 +1,7 @@
 import { db } from "@/lib/db";
-import { payments, type Payment } from "@vroom/db/schema";
-import { eq } from "drizzle-orm";
+import { payments, bookings, bookingEvents, outboxEvents, type Payment } from "@vroom/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { getRazorpay, verifyPaymentSignature } from "@/lib/razorpay";
-import { eventBus } from "@vroom/events";
 
 export class PaymentService {
   async createOrder(
@@ -29,7 +28,7 @@ export class PaymentService {
 
     const idempotencyKey = `order_${bookingId}_${order.id}`;
 
-    const result = (await (db as any)
+    const result = (await db
       .insert(payments)
       .values({
         bookingId,
@@ -81,12 +80,12 @@ export class PaymentService {
       // Non-critical — proceed without method info
     }
 
-    const updated = (await (db as any)
+    const updated = (await db
       .update(payments)
       .set({
         status: "captured",
         gatewayReference: razorpayPaymentId,
-        method,
+        method: method as "upi" | "card" | "netbanking" | "wallet" | null,
         metadata: {
           gateway: "razorpay",
           orderId: razorpayOrderId,
@@ -102,10 +101,13 @@ export class PaymentService {
 
     const payment = updated[0]!;
 
-    eventBus.publish("payment.captured", {
-      paymentId: payment.id,
-      bookingId: payment.bookingId,
-      amount: payment.amount,
+    await db.insert(outboxEvents).values({
+      eventType: "payment.captured",
+      payload: {
+        paymentId: payment.id,
+        bookingId: payment.bookingId,
+        amount: payment.amount,
+      },
     });
 
     return payment;
@@ -128,9 +130,9 @@ export class PaymentService {
       notes: { reason, bookingId },
     });
 
-    const idempotencyKey = `refund_${bookingId}_${Date.now()}`;
+    const idempotencyKey = `refund_${bookingId}_${captured.id}`;
 
-    const result = (await (db as any)
+    const result = (await db
       .insert(payments)
       .values({
         bookingId,
@@ -150,17 +152,20 @@ export class PaymentService {
       })
       .returning()) as Payment[];
 
-    eventBus.publish("payment.refunded", {
-      paymentId: result[0]!.id,
-      bookingId,
-      amount,
+    await db.insert(outboxEvents).values({
+      eventType: "payment.refunded",
+      payload: {
+        paymentId: result[0]!.id,
+        bookingId,
+        amount,
+      },
     });
 
     return result[0]!;
   }
 
   async getByBookingId(bookingId: string): Promise<Payment[]> {
-    return (db as any)
+    return db
       .select()
       .from(payments)
       .where(eq(payments.bookingId, bookingId)) as Promise<Payment[]>;
@@ -175,28 +180,78 @@ export class PaymentService {
         const orderId = entity.order_id;
         if (!orderId) return;
 
-        await (db as any)
+        // Update payment record
+        const updated = (await db
           .update(payments)
           .set({
             status: "captured",
-            method: entity.method,
+            method: entity.method as "upi" | "card" | "netbanking" | "wallet" | null,
             gatewayReference: entity.id,
           })
-          .where(eq(payments.gatewayReference, orderId));
+          .where(eq(payments.gatewayReference, orderId))
+          .returning()) as Payment[];
+
+        // Confirm the booking — authoritative path (idempotent: only updates if still pending)
+        if (updated.length > 0) {
+          const payment = updated[0]!;
+          const confirmedRows = await db
+            .update(bookings)
+            .set({
+              status: "confirmed",
+              version: sql`${bookings.version} + 1`,
+            })
+            .where(
+              and(
+                eq(bookings.id, payment.bookingId),
+                eq(bookings.status, "pending")
+              )
+            )
+            .returning();
+
+          if (confirmedRows.length > 0) {
+            const booking = confirmedRows[0];
+            await db.insert(bookingEvents).values({
+              bookingId: payment.bookingId,
+              eventType: "payment_captured",
+              data: {
+                paymentId: entity.id,
+                orderId,
+                source: "webhook",
+              },
+              actorId: payment.userId,
+              actorType: "user",
+            });
+
+            await db.insert(outboxEvents).values({
+              eventType: "booking.confirmed",
+              payload: {
+                bookingId: payment.bookingId,
+                vehicleId: booking.vehicleId,
+                renterId: booking.renterId,
+                hostId: booking.hostId,
+              },
+            });
+          }
+        }
         break;
       }
       case "payment.failed": {
         const orderId = entity.order_id;
         if (!orderId) return;
 
-        await (db as any)
+        // Only mark as failed if not already captured (prevent out-of-order overwrites)
+        await db
           .update(payments)
           .set({ status: "failed" })
-          .where(eq(payments.gatewayReference, orderId));
+          .where(
+            and(
+              eq(payments.gatewayReference, orderId),
+              eq(payments.status, "pending")
+            )
+          );
         break;
       }
       case "refund.processed": {
-        // Refund already recorded via processRefund, this is a confirmation
         break;
       }
     }

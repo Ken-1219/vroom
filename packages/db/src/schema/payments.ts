@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { bookings } from "./bookings";
 import { users } from "./users";
+import { paymentTypeEnum, paymentStatusEnum, paymentMethodEnum } from "./enums";
 
 export const payments = pgTable(
   "payments",
@@ -22,9 +23,9 @@ export const payments = pgTable(
       .notNull(),
     amount: integer("amount").notNull(),
     currency: varchar("currency", { length: 3 }).notNull().default("INR"),
-    type: varchar("type", { length: 20 }).notNull(), // charge, refund
-    status: varchar("status", { length: 20 }).notNull(), // pending, authorized, captured, failed, refunded
-    method: varchar("method", { length: 20 }), // upi, card, netbanking
+    type: paymentTypeEnum("type").notNull(),
+    status: paymentStatusEnum("status").notNull(),
+    method: paymentMethodEnum("method"),
     gatewayReference: varchar("gateway_reference", { length: 255 }),
     idempotencyKey: varchar("idempotency_key", { length: 255 }).unique().notNull(),
     metadata: jsonb("metadata"),

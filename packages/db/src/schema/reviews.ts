@@ -13,6 +13,7 @@ import { sql } from "drizzle-orm";
 import { bookings } from "./bookings";
 import { users } from "./users";
 import { vehicles } from "./vehicles";
+import { reviewTypeEnum, reviewStatusEnum } from "./enums";
 
 export const reviews = pgTable(
   "reviews",
@@ -26,11 +27,11 @@ export const reviews = pgTable(
       .notNull(),
     revieweeId: uuid("reviewee_id").references(() => users.id),
     vehicleId: uuid("vehicle_id").references(() => vehicles.id),
-    type: varchar("type", { length: 20 }).notNull(),
+    type: reviewTypeEnum("type").notNull(),
     rating: integer("rating").notNull(),
     subRatings: jsonb("sub_ratings"),
     text: text("text"),
-    status: varchar("status", { length: 20 }).default("published"),
+    status: reviewStatusEnum("status").default("published"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [

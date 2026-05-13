@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, type User } from "@vroom/db/schema";
-import { eq, desc, ilike, or } from "drizzle-orm";
+import { and, eq, desc, ilike, or } from "drizzle-orm";
 import { ApiError, errorResponse } from "@/lib/api-error";
+import { adminUserUpdateSchema } from "@vroom/validators";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -16,20 +17,22 @@ export async function GET(request: NextRequest) {
   const role = searchParams.get("role") ?? "";
 
   try {
-    let query = (db as any).select().from(users);
-
+    const conditions = [];
     if (search) {
-      query = query.where(
+      conditions.push(
         or(
           ilike(users.name, `%${search}%`),
           ilike(users.email, `%${search}%`)
         )
       );
     }
-
     if (role) {
-      query = query.where(eq(users.role, role));
+      conditions.push(eq(users.role, role as "renter" | "host" | "admin"));
     }
+
+    const query = conditions.length > 0
+      ? db.select().from(users).where(and(...conditions))
+      : db.select().from(users);
 
     const rows = (await query.orderBy(desc(users.createdAt)).limit(100)) as User[];
 
@@ -58,19 +61,16 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { userId, role, status } = body;
-
-    if (!userId) {
-      return errorResponse(new ApiError(400, "BAD_REQUEST", "userId required"));
+    const parsed = adminUserUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error);
     }
+
+    const { userId, role, status } = parsed.data;
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
-    if (role && ["renter", "host", "admin"].includes(role)) {
-      updates.role = role;
-    }
-    if (status && ["active", "suspended", "banned"].includes(status)) {
-      updates.status = status;
-    }
+    if (role) updates.role = role;
+    if (status) updates.status = status;
 
     if (Object.keys(updates).length <= 1) {
       return errorResponse(
@@ -78,7 +78,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updated = (await (db as any)
+    const updated = (await db
       .update(users)
       .set(updates)
       .where(eq(users.id, userId))

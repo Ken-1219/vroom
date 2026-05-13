@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const vehicleId = request.nextUrl.searchParams.get("vehicleId");
   if (!vehicleId) return NextResponse.json({ subscribed: false });
 
-  const existing = await (db as any)
+  const existing = await db
     .select({ id: notifications.id })
     .from(notifications)
     .where(
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  const all = await (db as any)
+  const all = await db
     .select({ id: notifications.id, data: notifications.data })
     .from(notifications)
     .where(
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     );
 
   const isSubscribed = all.some(
-    (n: { data: Record<string, unknown> | null }) =>
+    (n) =>
       n.data && (n.data as Record<string, unknown>).vehicleId === vehicleId
   );
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   const { vehicleId } = await request.json();
   if (!vehicleId) return NextResponse.json({ error: "vehicleId required" }, { status: 400 });
 
-  const vehicle = await (db as any)
+  const vehicle = await db
     .select({ make: vehicles.make, model: vehicles.model, baseDailyRate: vehicles.baseDailyRate })
     .from(vehicles)
     .where(eq(vehicles.id, vehicleId))
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
   const currentPrice = Math.round(baseDailyRate / 100);
 
   // Check if already subscribed
-  const existing = await (db as any)
+  const existing = await db
     .select({ id: notifications.id, data: notifications.data })
     .from(notifications)
     .where(
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     );
 
   const alreadySubscribed = existing.some(
-    (n: { data: Record<string, unknown> | null }) =>
+    (n) =>
       n.data && (n.data as Record<string, unknown>).vehicleId === vehicleId
   );
 
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ subscribed: true, message: "Already subscribed" });
   }
 
-  await (db as any).insert(notifications).values({
+  await db.insert(notifications).values({
     userId: session.user.id,
     type: "price_alert_subscription",
     title: "Price alert set",
@@ -110,7 +110,7 @@ export async function DELETE(request: NextRequest) {
   const vehicleId = request.nextUrl.searchParams.get("vehicleId");
   if (!vehicleId) return NextResponse.json({ error: "vehicleId required" }, { status: 400 });
 
-  const all = await (db as any)
+  const all = await db
     .select({ id: notifications.id, data: notifications.data })
     .from(notifications)
     .where(
@@ -121,12 +121,12 @@ export async function DELETE(request: NextRequest) {
     );
 
   const toDelete = all.filter(
-    (n: { id: string; data: Record<string, unknown> | null }) =>
+    (n) =>
       n.data && (n.data as Record<string, unknown>).vehicleId === vehicleId
   );
 
   for (const n of toDelete) {
-    await (db as any).delete(notifications).where(eq(notifications.id, n.id));
+    await db.delete(notifications).where(eq(notifications.id, n.id));
   }
 
   return NextResponse.json({ subscribed: false });

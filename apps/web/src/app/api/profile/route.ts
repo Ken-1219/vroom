@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { users, type User } from "@vroom/db/schema";
 import { eq } from "drizzle-orm";
 import { ApiError, errorResponse } from "@/lib/api-error";
+import { updateProfileSchema } from "@vroom/validators";
 
 export async function GET() {
   const session = await auth();
@@ -12,7 +13,7 @@ export async function GET() {
   }
 
   try {
-    const rows = (await (db as any)
+    const rows = (await db
       .select()
       .from(users)
       .where(eq(users.id, session.user.id))
@@ -47,17 +48,15 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const allowedFields: Record<string, unknown> = {};
+    const parsed = updateProfileSchema.safeParse(body);
+    if (!parsed.success) {
+      return errorResponse(parsed.error);
+    }
 
-    if (typeof body.name === "string" && body.name.trim()) {
-      allowedFields.name = body.name.trim();
-    }
-    if (typeof body.phone === "string") {
-      allowedFields.phone = body.phone.trim() || null;
-    }
-    if (typeof body.avatarUrl === "string") {
-      allowedFields.avatarUrl = body.avatarUrl.trim() || null;
-    }
+    const allowedFields: Record<string, unknown> = {};
+    if (parsed.data.name !== undefined) allowedFields.name = parsed.data.name.trim();
+    if (parsed.data.phone !== undefined) allowedFields.phone = parsed.data.phone.trim() || null;
+    if (parsed.data.avatarUrl !== undefined) allowedFields.avatarUrl = parsed.data.avatarUrl.trim() || null;
 
     if (Object.keys(allowedFields).length === 0) {
       return errorResponse(
@@ -67,7 +66,7 @@ export async function PATCH(request: NextRequest) {
 
     (allowedFields as any).updatedAt = new Date();
 
-    const updated = (await (db as any)
+    const updated = (await db
       .update(users)
       .set(allowedFields)
       .where(eq(users.id, session.user.id))

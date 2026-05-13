@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { users } from "./users";
+import { vehicleTypeEnum, fuelTypeEnum, transmissionEnum, vehicleStatusEnum } from "./enums";
 
 export const vehicles = pgTable(
   "vehicles",
@@ -25,17 +26,17 @@ export const vehicles = pgTable(
     model: varchar("model", { length: 100 }).notNull(),
     year: integer("year").notNull(),
     variant: varchar("variant", { length: 100 }),
-    vehicleType: varchar("vehicle_type", { length: 20 }).notNull(),
-    fuelType: varchar("fuel_type", { length: 20 }).notNull(),
-    transmission: varchar("transmission", { length: 20 }).notNull(),
+    vehicleType: vehicleTypeEnum("vehicle_type").notNull(),
+    fuelType: fuelTypeEnum("fuel_type").notNull(),
+    transmission: transmissionEnum("transmission").notNull(),
     seats: integer("seats").notNull(),
     color: varchar("color", { length: 50 }),
     registrationNumber: varchar("registration_number", { length: 30 })
       .unique()
       .notNull(),
 
-    // PostGIS point stored as text — we use raw SQL for spatial queries
-    // Format: SRID=4326;POINT(lng lat)
+    // Spatial queries use earthdistance + cube extensions with a GiST index
+    // See migrations/0001_spatial_index.sql
     latitude: numeric("latitude", { precision: 10, scale: 7 }).notNull(),
     longitude: numeric("longitude", { precision: 10, scale: 7 }).notNull(),
     address: text("address"),
@@ -60,7 +61,7 @@ export const vehicles = pgTable(
     tripCount: integer("trip_count").default(0),
     reviewCount: integer("review_count").default(0),
 
-    status: varchar("status", { length: 20 }).default("draft"),
+    status: vehicleStatusEnum("status").default("draft"),
     instantBooking: boolean("instant_booking").default(false),
 
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       conditions.push(ilike(pickupPoints.city, `%${city}%`));
     }
 
-    const results = (await (db as any)
+    const results = (await db
       .select()
       .from(pickupPoints)
       .where(and(...conditions))) as PickupPoint[];

@@ -28,7 +28,7 @@ export function verifyPaymentSignature(
     .createHmac("sha256", secret)
     .update(body)
     .digest("hex");
-  return expected === signature;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
 export function verifyWebhookSignature(
@@ -42,5 +42,5 @@ export function verifyWebhookSignature(
     .createHmac("sha256", secret)
     .update(body)
     .digest("hex");
-  return expected === signature;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }

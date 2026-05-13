@@ -1,6 +1,7 @@
 import { eventBus } from "@vroom/events";
 import { notificationService } from "@/services/notification";
 import { bookingService } from "@/services/booking";
+import { paymentService } from "@/services/payment";
 import { vehicleService } from "@/services/vehicle";
 import { sendEmail } from "@/lib/ses";
 import { bookingConfirmedEmail, tripStartedEmail, tripCompletedEmail } from "@/lib/email-templates";
@@ -8,13 +9,15 @@ import { formatPrice } from "@/lib/format";
 import { db } from "@/lib/db";
 import { bookings, users } from "@vroom/db/schema";
 import { eq, sql } from "drizzle-orm";
+import crypto from "crypto";
+import { logger } from "@/lib/logger";
 
 function generateOtp(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 async function getUserEmail(userId: string): Promise<{ email: string; name: string } | null> {
-  const result = (await (db as any)
+  const result = (await db
     .select({ email: users.email, name: users.name })
     .from(users)
     .where(eq(users.id, userId))
@@ -41,14 +44,14 @@ export function registerEventHandlers() {
   eventBus.subscribe("booking.confirmed", async (data) => {
     const otp = generateOtp();
 
-    const otpUpdated = await (db as any)
+    const otpUpdated = await db
       .update(bookings)
       .set({ pickupOtp: otp })
       .where(eq(bookings.id, data.bookingId))
       .returning() as { id: string }[];
 
     if (otpUpdated.length === 0) {
-      console.error(`[CRITICAL] Failed to persist pickup OTP for booking ${data.bookingId}`);
+      logger.error("Failed to persist pickup OTP for booking", { bookingId: data.bookingId });
       return;
     }
 
@@ -96,17 +99,29 @@ export function registerEventHandlers() {
         });
       }
     } catch (err) {
-      console.error("[event-handler] Failed to send booking confirmed email:", err);
+      logger.error("Failed to send booking confirmed email", { error: err instanceof Error ? err.message : String(err) });
     }
   });
 
   eventBus.subscribe("booking.cancelled", async (data) => {
+    if (data.refundAmount > 0) {
+      try {
+        await paymentService.processRefund(
+          data.bookingId,
+          data.refundAmount,
+          data.reason ?? "Booking cancelled"
+        );
+      } catch (err) {
+        logger.error("Refund failed for booking", { bookingId: data.bookingId, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
     await notificationService.send({
       userId: data.renterId,
       type: "booking_cancelled",
       title: "Booking cancelled",
       body: data.refundAmount > 0
-        ? `Your booking was cancelled. A refund is being processed.`
+        ? `Your booking was cancelled. A refund of ${data.refundAmount} is being processed.`
         : "Your booking was cancelled.",
       data: {
         bookingId: data.bookingId,
@@ -159,7 +174,7 @@ export function registerEventHandlers() {
         await sendEmail({ to: renter.email, ...emailData });
       }
     } catch (err) {
-      console.error("[event-handler] Failed on trip.started:", err);
+      logger.error("Failed on trip.started", { error: err instanceof Error ? err.message : String(err) });
     }
   });
 
@@ -190,7 +205,7 @@ export function registerEventHandlers() {
         await sendEmail({ to: renter.email, ...emailData });
       }
     } catch (err) {
-      console.error("[event-handler] Failed on trip.completed:", err);
+      logger.error("Failed on trip.completed", { error: err instanceof Error ? err.message : String(err) });
     }
   });
 

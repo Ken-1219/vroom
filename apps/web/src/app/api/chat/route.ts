@@ -18,7 +18,7 @@ import type { VehicleSearchParams } from "@vroom/validators";
 import type { PickupPoint } from "@vroom/db/schema";
 
 async function getUserContext(userId: string, role: string) {
-  const recentBookings = (await (db as any)
+  const recentBookings = (await db
     .select({
       id: bookings.id,
       status: bookings.status,
@@ -265,7 +265,7 @@ export async function POST(req: Request) {
           if (input.action === "pickup_points") {
             const vehicle = await vehicleService.getById(input.vehicleId);
             if (!vehicle) return { error: "Vehicle not found" };
-            const results = (await (db as any)
+            const results = (await db
               .select().from(pickupPoints)
               .where(and(eq(pickupPoints.active, true), ilike(pickupPoints.city, `%${vehicle.city}%`)))
             ) as PickupPoint[];
@@ -297,7 +297,7 @@ export async function POST(req: Request) {
           }
 
           if (input.action === "check_availability" && input.startDate && input.endDate) {
-            const conflicts = await (db as any)
+            const conflicts = await db
               .select({ id: bookings.id, startDate: bookings.startDate, endDate: bookings.endDate, status: bookings.status })
               .from(bookings)
               .where(and(
@@ -370,7 +370,7 @@ export async function POST(req: Request) {
               const vehicle = await vehicleService.getById(input.vehicleId);
               if (!vehicle) return { error: "Vehicle not found" };
 
-              const conflicts = await (db as any)
+              const conflicts = await db
                 .select({ id: bookings.id })
                 .from(bookings)
                 .where(and(
@@ -418,7 +418,7 @@ export async function POST(req: Request) {
               }
 
               // Check new dates don't conflict (excluding this booking)
-              const conflicts = await (db as any)
+              const conflicts = await db
                 .select({ id: bookings.id })
                 .from(bookings)
                 .where(and(
@@ -440,7 +440,7 @@ export async function POST(req: Request) {
 
               if (breakdown.days < 1) return { error: "End date must be after start date." };
 
-              await (db as any)
+              await db
                 .update(bookings)
                 .set({
                   startDate: new Date(input.startDate),

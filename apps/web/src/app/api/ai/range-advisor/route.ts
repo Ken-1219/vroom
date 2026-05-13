@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createGroq } from "@ai-sdk/groq";
+import { getCachedAiResponse, setCachedAiResponse, makeCacheKey } from "@/lib/ai-cache";
 
 const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -59,6 +60,18 @@ export async function POST(request: NextRequest) {
   const modelKey = vehicleName?.toLowerCase() ?? "default";
   const evRange = EV_RANGES[Object.keys(EV_RANGES).find((k) => modelKey.includes(k)) ?? "default"] ?? 350;
 
+  // Check cache first
+  const cacheKey = makeCacheKey("range-advisor", {
+    from: from.toLowerCase().trim(),
+    to: to.toLowerCase().trim(),
+    vehicleName: (vehicleName ?? "").toLowerCase().trim(),
+    fuelType: (fuelType ?? "petrol").toLowerCase().trim(),
+  });
+  const cached = await getCachedAiResponse<{ from: string; to: string; distanceKm: number | null; isEV: boolean; evRange: number | null; advice: string }>(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached);
+  }
+
   try {
     const { text } = await generateText({
       model: groq("llama-3.3-70b-versatile"),
@@ -79,16 +92,28 @@ Format: bullet points only, no headings, keep it practical for an Indian driver.
       maxOutputTokens: 350,
     });
 
-    return NextResponse.json({
+    const result = {
       from,
       to,
       distanceKm,
       isEV,
       evRange: isEV ? evRange : null,
       advice: text.trim(),
-    });
+    };
+
+    // Cache the result for 24 hours
+    await setCachedAiResponse(cacheKey, result, 86400);
+
+    return NextResponse.json(result);
   } catch (err) {
     console.error("[range-advisor]", err);
-    return NextResponse.json({ error: "Failed to generate advice" }, { status: 500 });
+    return NextResponse.json({
+      from,
+      to,
+      distanceKm,
+      isEV,
+      evRange: isEV ? evRange : null,
+      advice: "Our trip advisor is temporarily unavailable. Please try again in a few minutes.",
+    });
   }
 }

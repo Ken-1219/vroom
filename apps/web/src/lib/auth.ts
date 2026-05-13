@@ -61,25 +61,27 @@ const DEMO_ACCOUNTS: Record<
 };
 
 const providers = [
-  Credentials({
-    name: "Demo Account",
-    credentials: {
-      email: { label: "Email", type: "email" },
-      password: { label: "Password", type: "password" },
-    },
-    async authorize(credentials) {
-      const email = credentials?.email as string;
-      const password = credentials?.password as string;
-      const account = DEMO_ACCOUNTS[email];
-      if (!account || account.password !== password) return null;
-      return {
-        id: account.id,
-        email,
-        name: account.name,
-        role: account.role,
-      };
-    },
-  }),
+  ...[
+        Credentials({
+          name: "Demo Account",
+          credentials: {
+            email: { label: "Email", type: "email" },
+            password: { label: "Password", type: "password" },
+          },
+          async authorize(credentials) {
+            const email = credentials?.email as string;
+            const password = credentials?.password as string;
+            const account = DEMO_ACCOUNTS[email];
+            if (!account || account.password !== password) return null;
+            return {
+              id: account.id,
+              email,
+              name: account.name,
+              role: account.role,
+            };
+          },
+        }),
+      ],
   ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
     ? [Google({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
     : []),

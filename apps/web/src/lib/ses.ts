@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { logger } from "@/lib/logger";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -19,6 +20,6 @@ export async function sendEmail(input: {
       ...(input.text && { text: input.text }),
     });
   } catch (err) {
-    console.error("[Resend] Failed to send email:", err);
+    logger.error("Failed to send email via Resend", { error: err instanceof Error ? err.message : String(err) });
   }
 }

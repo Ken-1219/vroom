@@ -111,6 +111,57 @@ export const createVehicleSchema = z.object({
   instantBooking: z.boolean().default(false),
 });
 
+export const updateVehicleSchema = z.object({
+  make: z.string().min(1).max(100).optional(),
+  model: z.string().min(1).max(100).optional(),
+  year: z.number().int().min(2000).max(2030).optional(),
+  variant: z.string().max(100).optional(),
+  vehicleType: z.enum(["sedan", "suv", "hatchback", "luxury", "ev", "mpv"]).optional(),
+  fuelType: z.enum(["petrol", "diesel", "electric", "hybrid", "cng"]).optional(),
+  transmission: z.enum(["manual", "automatic"]).optional(),
+  seats: z.number().int().min(2).max(12).optional(),
+  color: z.string().max(50).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  address: z.string().optional(),
+  city: z.string().min(1).max(100).optional(),
+  baseDailyRate: z.number().int().positive().optional(),
+  weekendRate: z.number().int().positive().optional(),
+  weeklyDiscountPct: z.number().int().min(0).max(80).optional(),
+  monthlyDiscountPct: z.number().int().min(0).max(80).optional(),
+  description: z.string().max(2000).optional(),
+  features: z.array(z.string()).optional(),
+  rules: z.record(z.unknown()).optional(),
+  photos: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        thumbnailUrl: z.string().url().optional(),
+        position: z.number().int().min(0),
+        isPrimary: z.boolean().default(false),
+      })
+    )
+    .optional(),
+  instantBooking: z.boolean().optional(),
+});
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  phone: z.string().max(20).optional(),
+  avatarUrl: z.string().url().optional().or(z.literal("")),
+});
+
+export const adminUserUpdateSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["renter", "host", "admin"]).optional(),
+  status: z.enum(["active", "suspended", "banned"]).optional(),
+});
+
+export const webhookPayloadSchema = z.object({
+  event: z.string().min(1),
+  payload: z.record(z.unknown()),
+});
+
 export const createReviewSchema = z.object({
   bookingId: z.string().uuid(),
   vehicleId: z.string().uuid().optional(),
@@ -188,6 +239,26 @@ export const priceEstimateSchema = z.object({
 
 export type PriceEstimateInput = z.infer<typeof priceEstimateSchema>;
 
+// Availability schemas
+export const setAvailabilitySchema = z.object({
+  vehicleId: z.string().uuid(),
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+  type: z.enum(["blocked", "maintenance"]),
+  reason: z.string().max(500).optional(),
+}).refine(data => new Date(data.endDate) > new Date(data.startDate), {
+  message: "End date must be after start date",
+  path: ["endDate"],
+});
+export type SetAvailabilityInput = z.infer<typeof setAvailabilitySchema>;
+
+// Payout schemas
+export const requestPayoutSchema = z.object({
+  periodStart: z.string().datetime(),
+  periodEnd: z.string().datetime(),
+});
+export type RequestPayoutInput = z.infer<typeof requestPayoutSchema>;
+
 // Type exports
 export type VehicleSearchParams = z.infer<typeof vehicleSearchSchema>;
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
@@ -201,3 +272,6 @@ export type BookingActionInput = z.infer<typeof bookingActionSchema>;
 export type StartTripInput = z.infer<typeof startTripSchema>;
 export type EndTripInput = z.infer<typeof endTripSchema>;
 export type TripLocationInput = z.infer<typeof tripLocationSchema>;
+export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type AdminUserUpdateInput = z.infer<typeof adminUserUpdateSchema>;

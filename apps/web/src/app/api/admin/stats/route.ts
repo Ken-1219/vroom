@@ -14,16 +14,16 @@ export async function GET() {
   try {
     const [userStats, vehicleStats, bookingStats, revenueStats] =
       await Promise.all([
-        (db as any)
+        db
           .select({ total: count() })
           .from(users) as Promise<{ total: number }[]>,
-        (db as any)
+        db
           .select({ total: count() })
           .from(vehicles) as Promise<{ total: number }[]>,
-        (db as any)
+        db
           .select({ total: count() })
           .from(bookings) as Promise<{ total: number }[]>,
-        (db as any)
+        db
           .select({ total: sum(payments.amount) })
           .from(payments)
           .where(eq(payments.status, "captured")) as Promise<
@@ -31,12 +31,12 @@ export async function GET() {
         >,
       ]);
 
-    const hostCount = (await (db as any)
+    const hostCount = (await db
       .select({ total: count() })
       .from(users)
       .where(eq(users.role, "host"))) as { total: number }[];
 
-    const pendingBookings = (await (db as any)
+    const pendingBookings = (await db
       .select({ total: count() })
       .from(bookings)
       .where(eq(bookings.status, "pending"))) as { total: number }[];

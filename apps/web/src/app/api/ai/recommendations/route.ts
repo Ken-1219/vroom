@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { vehicles, bookings } from "@vroom/db/schema";
 import { eq, desc, inArray, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { getCachedAiResponse, setCachedAiResponse, makeCacheKey } from "@/lib/ai-cache";
 
 const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -67,7 +68,7 @@ export async function GET() {
     if (session?.user?.id) {
       const userId = session.user.id;
 
-      const recentBookings = await (db as any)
+      const recentBookings = await db
         .select({
           vehicleId: bookings.vehicleId,
           vehicleType: vehicles.vehicleType,
@@ -86,7 +87,7 @@ export async function GET() {
         const preferredCities: string[] = [...new Set(recentBookings.map((b: { city: string }) => b.city))] as string[];
         const bookedIds: string[] = [...new Set(recentBookings.map((b: { vehicleId: string }) => b.vehicleId))] as string[];
 
-        candidateVehicles = await (db as any)
+        candidateVehicles = await db
           .select({
             id: vehicles.id,
             make: vehicles.make,
@@ -114,7 +115,7 @@ export async function GET() {
     }
 
     if (!hasHistory || candidateVehicles.length === 0) {
-      candidateVehicles = await (db as any)
+      candidateVehicles = await db
         .select({
           id: vehicles.id,
           make: vehicles.make,
@@ -145,6 +146,25 @@ export async function GET() {
       trips: v.tripCount ?? 0,
     }));
 
+    // Check cache based on candidate vehicle IDs
+    const candidateIds = candidateVehicles.map((v: VehicleRow) => v.id).sort();
+    const cacheKey = makeCacheKey("ai-recommendations", { vehicleIds: candidateIds });
+    const cachedRanking = await getCachedAiResponse<Array<{ id: string; reason: string }>>(cacheKey);
+
+    if (cachedRanking) {
+      const vehicleMap = new Map(candidateVehicles.map((v: VehicleRow) => [v.id, v]));
+      const results: RecommendedVehicle[] = [];
+      for (const item of cachedRanking.slice(0, 4)) {
+        const v = vehicleMap.get(item.id);
+        if (v) {
+          results.push(formatVehicle(v, item.reason));
+        }
+      }
+      if (results.length === 4) {
+        return NextResponse.json(results);
+      }
+    }
+
     try {
       const { text } = await generateText({
         model: groq("llama-3.3-70b-versatile"),
@@ -169,7 +189,6 @@ Return only the JSON array, no other text.`,
       const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         const ranked = JSON.parse(match[0]) as Array<{ id: string; reason: string }>;
-        const reasonMap = new Map(ranked.map((r) => [r.id, r.reason]));
         const vehicleMap = new Map(candidateVehicles.map((v: VehicleRow) => [v.id, v]));
 
         const results: RecommendedVehicle[] = [];
@@ -181,6 +200,8 @@ Return only the JSON array, no other text.`,
         }
 
         if (results.length === 4) {
+          // Cache the ranking for 30 minutes
+          await setCachedAiResponse(cacheKey, ranked, 1800);
           return NextResponse.json(results);
         }
       }

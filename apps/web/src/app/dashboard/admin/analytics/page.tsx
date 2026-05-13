@@ -11,7 +11,7 @@ export default async function AdminAnalyticsPage() {
     redirect("/");
   }
 
-  const revenueByMonth = (await (db as any)
+  const revenueByMonth = (await db
     .select({
       month: sql<string>`to_char(${payments.createdAt}, 'YYYY-MM')`,
       total: sum(payments.amount),
@@ -23,7 +23,7 @@ export default async function AdminAnalyticsPage() {
     .orderBy(sql`to_char(${payments.createdAt}, 'YYYY-MM') DESC`)
     .limit(12)) as { month: string; total: string | null; count: number }[];
 
-  const bookingsByStatus = (await (db as any)
+  const bookingsByStatus = (await db
     .select({
       status: bookings.status,
       count: count(),
@@ -34,12 +34,12 @@ export default async function AdminAnalyticsPage() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const recentBookings = (await (db as any)
+  const recentBookings = (await db
     .select({ count: count() })
     .from(bookings)
     .where(gte(bookings.createdAt, thirtyDaysAgo))) as { count: number }[];
 
-  const recentRevenue = (await (db as any)
+  const recentRevenue = (await db
     .select({ total: sum(payments.amount) })
     .from(payments)
     .where(

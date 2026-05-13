@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { logger } from "@/lib/logger";
 
 export class ApiError extends Error {
   constructor(
@@ -38,7 +39,7 @@ export function errorResponse(error: unknown): Response {
     );
   }
 
-  console.error("Unhandled error:", error);
+  logger.error("Unhandled error", { error: error instanceof Error ? error.message : String(error) });
 
   // Determine a safe, user-facing message.
   // Raw DB/Drizzle errors start with "Failed query:" — never expose these to clients.

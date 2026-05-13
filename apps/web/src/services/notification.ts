@@ -9,9 +9,9 @@ export class NotificationService {
     title: string;
     body: string;
     data?: Record<string, unknown>;
-    channel?: string;
+    channel?: "in_app" | "email" | "push" | "sms";
   }): Promise<Notification> {
-    const result = (await (db as any)
+    const result = (await db
       .insert(notifications)
       .values({
         userId: input.userId,
@@ -31,14 +31,14 @@ export class NotificationService {
     offset = 0
   ): Promise<{ notifications: Notification[]; unreadCount: number }> {
     const [items, countResult] = await Promise.all([
-      (db as any)
+      db
         .select()
         .from(notifications)
         .where(eq(notifications.userId, userId))
         .orderBy(desc(notifications.createdAt))
         .limit(limit)
         .offset(offset) as Promise<Notification[]>,
-      (db as any)
+      db
         .select({ count: sql<number>`count(*)` })
         .from(notifications)
         .where(
@@ -56,7 +56,7 @@ export class NotificationService {
   }
 
   async markRead(notificationId: string, userId: string): Promise<void> {
-    await (db as any)
+    await db
       .update(notifications)
       .set({ read: true })
       .where(
@@ -68,7 +68,7 @@ export class NotificationService {
   }
 
   async markAllRead(userId: string): Promise<void> {
-    await (db as any)
+    await db
       .update(notifications)
       .set({ read: true })
       .where(
@@ -80,7 +80,7 @@ export class NotificationService {
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    const result = (await (db as any)
+    const result = (await db
       .select({ count: sql<number>`count(*)` })
       .from(notifications)
       .where(

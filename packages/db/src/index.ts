@@ -1,3 +1,3 @@
 export * from "./schema";
-export { db } from "./client";
-export type { Database } from "./client";
+export { db, wsDb, getDb, getWsDb } from "./client";
+export type { Database, WsDatabase } from "./client";

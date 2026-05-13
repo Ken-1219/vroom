@@ -14,12 +14,12 @@ export default async function AdminDashboardPage() {
 
   const [userCount, vehicleCount, bookingCount, revenueResult, hostCount, pendingCount] =
     await Promise.all([
-      (db as any).select({ total: count() }).from(users) as Promise<{ total: number }[]>,
-      (db as any).select({ total: count() }).from(vehicles) as Promise<{ total: number }[]>,
-      (db as any).select({ total: count() }).from(bookings) as Promise<{ total: number }[]>,
-      (db as any).select({ total: sum(payments.amount) }).from(payments).where(eq(payments.status, "captured")) as Promise<{ total: string | null }[]>,
-      (db as any).select({ total: count() }).from(users).where(eq(users.role, "host")) as Promise<{ total: number }[]>,
-      (db as any).select({ total: count() }).from(bookings).where(eq(bookings.status, "pending")) as Promise<{ total: number }[]>,
+      db.select({ total: count() }).from(users) as Promise<{ total: number }[]>,
+      db.select({ total: count() }).from(vehicles) as Promise<{ total: number }[]>,
+      db.select({ total: count() }).from(bookings) as Promise<{ total: number }[]>,
+      db.select({ total: sum(payments.amount) }).from(payments).where(eq(payments.status, "captured")) as Promise<{ total: string | null }[]>,
+      db.select({ total: count() }).from(users).where(eq(users.role, "host")) as Promise<{ total: number }[]>,
+      db.select({ total: count() }).from(bookings).where(eq(bookings.status, "pending")) as Promise<{ total: number }[]>,
     ]);
 
   const stats = [

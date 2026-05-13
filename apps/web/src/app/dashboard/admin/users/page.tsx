@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, type User } from "@vroom/db/schema";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { AdminUserActions } from "./user-actions";
 
 export default async function AdminUsersPage({
@@ -19,18 +19,21 @@ export default async function AdminUsersPage({
   const search = params.search ?? "";
   const roleFilter = params.role ?? "";
 
-  let query = (db as any).select().from(users);
-
+  const conditions = [];
   if (search) {
-    query = query.where(
+    conditions.push(
       or(ilike(users.name, `%${search}%`), ilike(users.email, `%${search}%`))
     );
   }
   if (roleFilter) {
-    query = query.where(eq(users.role, roleFilter));
+    conditions.push(eq(users.role, roleFilter as "renter" | "host" | "admin"));
   }
 
-  const allUsers = (await query.orderBy(desc(users.createdAt)).limit(200)) as User[];
+  const baseQuery = conditions.length > 0
+    ? db.select().from(users).where(and(...conditions))
+    : db.select().from(users);
+
+  const allUsers = (await baseQuery.orderBy(desc(users.createdAt)).limit(200)) as User[];
 
   const roleColors: Record<string, string> = {
     admin: "bg-purple-100 text-purple-700",

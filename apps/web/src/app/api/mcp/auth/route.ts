@@ -11,6 +11,7 @@ const DEMO_ACCOUNTS: Record<string, { id: string; name: string; role: string; pa
 };
 
 export async function POST(request: NextRequest) {
+
   try {
     const { email, password } = await request.json();
 

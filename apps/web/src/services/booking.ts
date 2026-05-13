@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
-import { bookings, bookingEvents, type Booking } from "@vroom/db/schema";
+import { bookings, bookingEvents, outboxEvents, type Booking } from "@vroom/db/schema";
 import { eq, and, desc, sql, lt, gte, inArray } from "drizzle-orm";
-import { eventBus } from "@vroom/events";
+import { neon } from "@neondatabase/serverless";
 import { pricingService } from "@/services/pricing";
 import type { CreateBookingInput } from "@vroom/validators";
 
@@ -11,7 +11,7 @@ export class BookingService {
     startDate: Date,
     endDate: Date
   ): Promise<boolean> {
-    const overlaps = (await (db as any)
+    const overlaps = (await db
       .select({ id: bookings.id })
       .from(bookings)
       .where(
@@ -35,7 +35,7 @@ export class BookingService {
     const endDate = new Date(input.endDate);
 
     // Auto-cancel any stale unpaid pending bookings from this renter for this vehicle
-    await (db as any)
+    await db
       .update(bookings)
       .set({
         status: "cancelled",
@@ -51,36 +51,48 @@ export class BookingService {
         )
       );
 
-    const conflict = await this.hasOverlappingBooking(input.vehicleId, startDate, endDate);
-    if (conflict) {
-      throw new Error("This vehicle is already booked for the selected dates");
+    // Atomic insert-if-no-overlap using raw SQL to prevent double-booking race condition.
+    // A Drizzle check-then-insert is NOT atomic with the Neon HTTP driver (no transactions).
+    const rawSql = neon(process.env.DATABASE_URL!);
+    const rows = await rawSql`
+      INSERT INTO bookings (
+        renter_id, vehicle_id, host_id, status,
+        start_date, end_date,
+        pickup_latitude, pickup_longitude, pickup_address,
+        dropoff_latitude, dropoff_longitude, dropoff_address,
+        total_amount, currency, price_breakdown, coupon_code
+      )
+      SELECT
+        ${renterId}, ${input.vehicleId}, ${hostId}, 'pending',
+        ${startDate.toISOString()}::timestamptz, ${endDate.toISOString()}::timestamptz,
+        ${input.pickupLatitude?.toString() ?? null}, ${input.pickupLongitude?.toString() ?? null}, ${input.pickupAddress ?? null},
+        ${input.dropoffLatitude?.toString() ?? null}, ${input.dropoffLongitude?.toString() ?? null}, ${input.dropoffAddress ?? null},
+        ${input.totalAmount}, ${input.currency ?? "INR"}, ${JSON.stringify(input.priceBreakdown)}::jsonb, ${input.couponCode ?? null}
+      WHERE NOT EXISTS (
+        SELECT 1 FROM bookings
+        WHERE vehicle_id = ${input.vehicleId}
+          AND status IN ('pending', 'confirmed', 'active')
+          AND start_date < ${endDate.toISOString()}::timestamptz
+          AND end_date > ${startDate.toISOString()}::timestamptz
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM vehicle_availability
+        WHERE vehicle_id = ${input.vehicleId}
+          AND start_date < ${endDate.toISOString().split("T")[0]}
+          AND end_date > ${startDate.toISOString().split("T")[0]}
+      )
+      RETURNING *
+    `;
+
+    if (rows.length === 0) {
+      throw new Error("This vehicle is unavailable for the selected dates");
     }
 
-    const booking = (await (db as any)
-      .insert(bookings)
-      .values({
-        renterId,
-        vehicleId: input.vehicleId,
-        hostId,
-        status: "pending",
-        startDate: new Date(input.startDate),
-        endDate: new Date(input.endDate),
-        pickupLatitude: input.pickupLatitude?.toString(),
-        pickupLongitude: input.pickupLongitude?.toString(),
-        pickupAddress: input.pickupAddress,
-        dropoffLatitude: input.dropoffLatitude?.toString(),
-        dropoffLongitude: input.dropoffLongitude?.toString(),
-        dropoffAddress: input.dropoffAddress,
-        totalAmount: input.totalAmount,
-        currency: input.currency ?? "INR",
-        priceBreakdown: input.priceBreakdown,
-        couponCode: input.couponCode,
-      })
-      .returning()) as Booking[];
+    const booking = rows as unknown as Booking[];
 
     const created = booking[0]!;
 
-    await (db as any).insert(bookingEvents).values({
+    await db.insert(bookingEvents).values({
       bookingId: created.id,
       eventType: "created",
       data: { input },
@@ -88,18 +100,21 @@ export class BookingService {
       actorType: "user",
     });
 
-    eventBus.publish("booking.created", {
-      bookingId: created.id,
-      vehicleId: input.vehicleId,
-      renterId,
-      hostId,
+    await db.insert(outboxEvents).values({
+      eventType: "booking.created",
+      payload: {
+        bookingId: created.id,
+        vehicleId: input.vehicleId,
+        renterId,
+        hostId,
+      },
     });
 
     return created;
   }
 
   async getById(id: string): Promise<Booking | null> {
-    const result = (await (db as any)
+    const result = (await db
       .select()
       .from(bookings)
       .where(eq(bookings.id, id))
@@ -108,7 +123,7 @@ export class BookingService {
   }
 
   async getByRenter(renterId: string): Promise<Booking[]> {
-    return (db as any)
+    return db
       .select()
       .from(bookings)
       .where(eq(bookings.renterId, renterId))
@@ -116,7 +131,7 @@ export class BookingService {
   }
 
   async getByHost(hostId: string): Promise<Booking[]> {
-    return (db as any)
+    return db
       .select()
       .from(bookings)
       .where(eq(bookings.hostId, hostId))
@@ -130,7 +145,7 @@ export class BookingService {
       throw new Error("Booking cannot be cancelled");
     }
 
-    const updated = (await (db as any)
+    const updated = (await db
       .update(bookings)
       .set({
         status: "cancelled",
@@ -148,7 +163,7 @@ export class BookingService {
       throw new Error("Concurrent modification — try again");
     }
 
-    await (db as any).insert(bookingEvents).values({
+    await db.insert(bookingEvents).values({
       bookingId,
       eventType: "cancelled",
       data: { reason, cancelledBy },
@@ -163,13 +178,16 @@ export class BookingService {
       hoursUntilStart
     );
 
-    eventBus.publish("booking.cancelled", {
-      bookingId,
-      vehicleId: booking.vehicleId,
-      renterId: booking.renterId,
-      hostId: booking.hostId,
-      reason,
-      refundAmount,
+    await db.insert(outboxEvents).values({
+      eventType: "booking.cancelled",
+      payload: {
+        bookingId,
+        vehicleId: booking.vehicleId,
+        renterId: booking.renterId,
+        hostId: booking.hostId,
+        reason,
+        refundAmount,
+      },
     });
 
     return updated[0]!;
@@ -182,7 +200,7 @@ export class BookingService {
       throw new Error("Only pending bookings can be accepted");
     }
 
-    const updated = (await (db as any)
+    const updated = (await db
       .update(bookings)
       .set({
         status: "confirmed",
@@ -200,7 +218,7 @@ export class BookingService {
       throw new Error("Concurrent modification — try again");
     }
 
-    await (db as any).insert(bookingEvents).values({
+    await db.insert(bookingEvents).values({
       bookingId,
       eventType: "confirmed",
       data: { acceptedBy: hostId },
@@ -208,11 +226,14 @@ export class BookingService {
       actorType: "user",
     });
 
-    eventBus.publish("booking.confirmed", {
-      bookingId,
-      vehicleId: booking.vehicleId,
-      renterId: booking.renterId,
-      hostId: booking.hostId,
+    await db.insert(outboxEvents).values({
+      eventType: "booking.confirmed",
+      payload: {
+        bookingId,
+        vehicleId: booking.vehicleId,
+        renterId: booking.renterId,
+        hostId: booking.hostId,
+      },
     });
 
     return updated[0]!;
@@ -225,7 +246,7 @@ export class BookingService {
       throw new Error("Only pending bookings can be rejected");
     }
 
-    const updated = (await (db as any)
+    const updated = (await db
       .update(bookings)
       .set({
         status: "cancelled",
@@ -246,7 +267,7 @@ export class BookingService {
       throw new Error("Concurrent modification — try again");
     }
 
-    await (db as any).insert(bookingEvents).values({
+    await db.insert(bookingEvents).values({
       bookingId,
       eventType: "rejected",
       data: { reason, rejectedBy: hostId },
@@ -254,13 +275,16 @@ export class BookingService {
       actorType: "user",
     });
 
-    eventBus.publish("booking.cancelled", {
-      bookingId,
-      vehicleId: booking.vehicleId,
-      renterId: booking.renterId,
-      hostId: booking.hostId,
-      reason,
-      refundAmount: booking.totalAmount,
+    await db.insert(outboxEvents).values({
+      eventType: "booking.cancelled",
+      payload: {
+        bookingId,
+        vehicleId: booking.vehicleId,
+        renterId: booking.renterId,
+        hostId: booking.hostId,
+        reason,
+        refundAmount: booking.totalAmount,
+      },
     });
 
     return updated[0]!;

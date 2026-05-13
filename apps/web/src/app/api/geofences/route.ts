@@ -14,10 +14,10 @@ export async function GET(request: NextRequest) {
       conditions.push(ilike(geofences.city, `%${city}%`));
     }
     if (type) {
-      conditions.push(eq(geofences.type, type));
+      conditions.push(eq(geofences.type, type as "operating_zone" | "restricted_zone"));
     }
 
-    const results = (await (db as any)
+    const results = (await db
       .select()
       .from(geofences)
       .where(and(...conditions))) as Geofence[];
