@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import * as Sentry from "@sentry/nextjs";
 import { logger } from "@/lib/logger";
 
 export class ApiError extends Error {
@@ -13,6 +14,7 @@ export class ApiError extends Error {
 }
 
 export function errorResponse(error: unknown): Response {
+  // Known client errors — don't report to Sentry
   if (error instanceof ApiError) {
     return Response.json(
       {
@@ -26,6 +28,7 @@ export function errorResponse(error: unknown): Response {
     );
   }
 
+  // Validation errors — don't report to Sentry
   if (error instanceof ZodError) {
     return Response.json(
       {
@@ -39,7 +42,14 @@ export function errorResponse(error: unknown): Response {
     );
   }
 
+  // Unexpected 5xx errors — capture in Sentry
   logger.error("Unhandled error", { error: error instanceof Error ? error.message : String(error) });
+
+  if (error instanceof Error) {
+    Sentry.captureException(error);
+  } else {
+    Sentry.captureMessage(String(error), { level: "error" });
+  }
 
   // Determine a safe, user-facing message.
   // Raw DB/Drizzle errors start with "Failed query:" — never expose these to clients.

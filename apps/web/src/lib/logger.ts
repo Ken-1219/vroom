@@ -1,6 +1,11 @@
+import * as Sentry from "@sentry/nextjs";
+
 type LogLevel = "info" | "warn" | "error" | "debug";
 
 const isDev = process.env.NODE_ENV === "development";
+const sentryEnabled = Boolean(
+  process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
+);
 
 function formatLog(
   level: LogLevel,
@@ -41,6 +46,23 @@ function log(
           extraKeys.map((k) => `${k}=${JSON.stringify(extra[k])}`).join(" ")
         : "";
     consoleFn(`[${level.toUpperCase()}] ${message}${extraStr}`);
+  }
+
+  // Send errors to Sentry when available
+  if (level === "error" && sentryEnabled) {
+    const errorObj = extra?.error;
+    if (errorObj instanceof Error) {
+      Sentry.captureException(errorObj, {
+        extra: { ...extra, logMessage: message },
+      });
+    } else if (errorObj === undefined) {
+      // Only capture as message if there's no error field at all —
+      // when error is a string, the caller is expected to handle Sentry directly
+      Sentry.captureMessage(message, {
+        level: "error",
+        extra,
+      });
+    }
   }
 }
 

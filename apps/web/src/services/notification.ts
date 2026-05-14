@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
-import { notifications, type Notification } from "@vroom/db/schema";
+import { notifications, users, type Notification } from "@vroom/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { sendEmail } from "@/lib/email";
+import { logger } from "@/lib/logger";
 
 export class NotificationService {
   async send(input: {
@@ -10,7 +12,10 @@ export class NotificationService {
     body: string;
     data?: Record<string, unknown>;
     channel?: "in_app" | "email" | "push" | "sms";
+    emailPayload?: { subject: string; html: string; text?: string };
   }): Promise<Notification> {
+    const channel = input.channel ?? "in_app";
+
     const result = (await db
       .insert(notifications)
       .values({
@@ -19,9 +24,41 @@ export class NotificationService {
         title: input.title,
         body: input.body,
         data: input.data ?? {},
-        channel: input.channel ?? "in_app",
+        channel,
       })
       .returning()) as Notification[];
+
+    if (channel === "email" && input.emailPayload) {
+      try {
+        const userRows = (await db
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, input.userId))
+          .limit(1)) as { email: string | null }[];
+
+        const userEmail = userRows[0]?.email;
+        if (userEmail) {
+          await sendEmail({
+            to: userEmail,
+            subject: input.emailPayload.subject,
+            html: input.emailPayload.html,
+            text: input.emailPayload.text,
+          });
+        } else {
+          logger.warn("No email address found for user — skipping email delivery", {
+            userId: input.userId,
+            type: input.type,
+          });
+        }
+      } catch (err) {
+        logger.error("Failed to send email for notification", {
+          userId: input.userId,
+          type: input.type,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     return result[0]!;
   }
 

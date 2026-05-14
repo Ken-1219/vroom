@@ -316,3 +316,144 @@ export function tripCompletedEmail(data: {
 
   return { subject, html, text };
 }
+
+export function bookingCancelledEmail(data: {
+  renterName: string;
+  vehicleName: string;
+  bookingId: string;
+  reason?: string;
+  refundAmount?: string;
+}): { subject: string; html: string; text: string } {
+  const subject = `Your ${data.vehicleName} booking has been cancelled`;
+  const firstName = data.renterName.split(" ")[0];
+
+  const refundNote = data.refundAmount
+    ? `<p style="margin:0 0 8px;font-size:15px;color:#6B6B6B;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+        A refund of <strong style="color:#1A1A1A;">${data.refundAmount}</strong> is being processed and will be credited to your original payment method within 5–7 business days.
+      </p>`
+    : "";
+
+  const reasonNote = data.reason
+    ? `<p style="margin:0 0 24px;font-size:14px;color:#6B6B6B;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+        <strong style="color:#1A1A1A;">Reason:</strong> ${data.reason}
+      </p>`
+    : "";
+
+  const html = layout(`
+    ${statusBadge("✕ Booking Cancelled", "#DC2626", "#FEF2F2")}
+
+    <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#1A1A1A;letter-spacing:-0.5px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.2;">
+      Booking cancelled, ${firstName}
+    </h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#6B6B6B;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      Your booking for the <strong style="color:#1A1A1A;">${data.vehicleName}</strong> has been cancelled.
+    </p>
+
+    ${reasonNote}
+    ${refundNote}
+
+    ${divider()}
+
+    <p style="margin:0 0 8px;font-size:14px;color:#6B6B6B;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      Need another ride? Browse hundreds of cars available near you.
+    </p>
+
+    ${ctaButton("Browse Cars", `${BASE_URL}/search`)}
+  `, `Your ${data.vehicleName} booking has been cancelled.`);
+
+  const refundText = data.refundAmount ? `\nRefund: ${data.refundAmount} (5–7 business days)\n` : "";
+  const reasonText = data.reason ? `\nReason: ${data.reason}\n` : "";
+
+  const text = `Booking Cancelled — ${data.vehicleName}\n\nHi ${firstName}, your booking for ${data.vehicleName} has been cancelled.${reasonText}${refundText}\nBrowse cars: ${BASE_URL}/search\n\n— Vroom`;
+
+  return { subject, html, text };
+}
+
+export function paymentCapturedEmail(data: {
+  renterName: string;
+  vehicleName: string;
+  amount: string;
+  bookingId: string;
+}): { subject: string; html: string; text: string } {
+  const subject = `Payment received — ${data.amount}`;
+  const firstName = data.renterName.split(" ")[0];
+
+  const html = layout(`
+    ${statusBadge("✓ Payment Received", "#16A34A", "#F0FDF4")}
+
+    <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#1A1A1A;letter-spacing:-0.5px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.2;">
+      Payment confirmed, ${firstName}!
+    </h1>
+    <p style="margin:0 0 32px;font-size:15px;color:#6B6B6B;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      We've received your payment of <strong style="color:#1A1A1A;">${data.amount}</strong> for the <strong style="color:#1A1A1A;">${data.vehicleName}</strong>.
+    </p>
+
+    <!-- Payment summary -->
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;margin-bottom:32px;">
+      <tr>
+        <td style="padding:20px 24px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Amount Paid</p>
+          <p style="margin:0;font-size:28px;font-weight:900;color:#16A34A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${data.amount}</p>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 8px;font-size:14px;color:#6B6B6B;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      The host will review your booking shortly. You'll receive a confirmation email once your booking is accepted.
+    </p>
+
+    ${ctaButton("View Booking", `${BASE_URL}/bookings/${data.bookingId}`)}
+  `, `Payment of ${data.amount} received for your ${data.vehicleName} booking.`);
+
+  const text = `Payment Received — ${data.amount}\n\nHi ${firstName}, we've received your payment of ${data.amount} for ${data.vehicleName}.\n\nView booking: ${BASE_URL}/bookings/${data.bookingId}\n\n— Vroom`;
+
+  return { subject, html, text };
+}
+
+export function refundProcessedEmail(data: {
+  renterName: string;
+  vehicleName: string;
+  amount: string;
+  bookingId: string;
+}): { subject: string; html: string; text: string } {
+  const subject = `Refund processed — ${data.amount}`;
+  const firstName = data.renterName.split(" ")[0];
+
+  const html = layout(`
+    ${statusBadge("↩ Refund Processed", "#2563EB", "#EFF6FF")}
+
+    <h1 style="margin:0 0 8px;font-size:26px;font-weight:800;color:#1A1A1A;letter-spacing:-0.5px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.2;">
+      Your refund is on the way, ${firstName}
+    </h1>
+    <p style="margin:0 0 32px;font-size:15px;color:#6B6B6B;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      We've processed a refund of <strong style="color:#1A1A1A;">${data.amount}</strong> for your <strong style="color:#1A1A1A;">${data.vehicleName}</strong> booking.
+    </p>
+
+    <!-- Refund summary -->
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:14px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:20px 24px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Refund Amount</p>
+          <p style="margin:0;font-size:28px;font-weight:900;color:#2563EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${data.amount}</p>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FAFAF8;border-left:3px solid #FF4D00;border-radius:0 12px 12px 0;margin-bottom:32px;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1A1A1A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">When will I get my refund?</p>
+          <p style="margin:0;font-size:13px;color:#6B6B6B;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+            The refund will be credited to your original payment method within 5–7 business days. Bank processing times may vary.
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    ${ctaButton("View Booking", `${BASE_URL}/bookings/${data.bookingId}`)}
+  `, `Refund of ${data.amount} processed for your ${data.vehicleName} booking.`);
+
+  const text = `Refund Processed — ${data.amount}\n\nHi ${firstName}, we've processed a refund of ${data.amount} for your ${data.vehicleName} booking.\n\nThe refund will be credited to your original payment method within 5–7 business days.\n\nView booking: ${BASE_URL}/bookings/${data.bookingId}\n\n— Vroom`;
+
+  return { subject, html, text };
+}
