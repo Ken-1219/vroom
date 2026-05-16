@@ -107,16 +107,6 @@ export function registerEventHandlers() {
           text: emailData.text,
         });
 
-        // Send email notification via notification service (new Resend path)
-        await notificationService.send({
-          userId: data.renterId,
-          type: "booking_confirmed",
-          title: "Booking confirmed",
-          body: `Your booking has been confirmed. Your pickup OTP is ${otp}.`,
-          data: { bookingId: data.bookingId, vehicleId: data.vehicleId, pickupOtp: otp },
-          channel: "email",
-          emailPayload: emailData,
-        });
       }
     } catch (err) {
       logger.error("Failed to send booking confirmed email", { error: err instanceof Error ? err.message : String(err) });
@@ -184,14 +174,11 @@ export function registerEventHandlers() {
             refundAmount: refundFormatted,
           });
 
-          await notificationService.send({
-            userId: data.renterId,
-            type: "booking_cancelled",
-            title: "Booking cancelled",
-            body: `Your booking for ${vehicleName} has been cancelled.`,
-            data: { bookingId: data.bookingId, reason: data.reason, refundAmount: data.refundAmount },
-            channel: "email",
-            emailPayload: renterEmailData,
+          await sendEmail({
+            to: renterInfo.email,
+            subject: renterEmailData.subject,
+            html: renterEmailData.html,
+            text: renterEmailData.text,
           });
         }
 
@@ -205,14 +192,11 @@ export function registerEventHandlers() {
             reason: data.reason,
           });
 
-          await notificationService.send({
-            userId: data.hostId,
-            type: "booking_cancelled",
-            title: "Booking cancelled",
-            body: `A booking for your ${vehicleName} was cancelled.`,
-            data: { bookingId: data.bookingId, reason: data.reason },
-            channel: "email",
-            emailPayload: hostEmailData,
+          await sendEmail({
+            to: hostInfo.email,
+            subject: hostEmailData.subject,
+            html: hostEmailData.html,
+            text: hostEmailData.text,
           });
         }
       }
@@ -272,7 +256,7 @@ export function registerEventHandlers() {
       });
 
       // Email notification
-      if (renter) {
+      if (renter?.email) {
         const emailData = paymentCapturedEmail({
           renterName: renter.name || "there",
           vehicleName,
@@ -280,14 +264,11 @@ export function registerEventHandlers() {
           bookingId: booking.id,
         });
 
-        await notificationService.send({
-          userId: booking.renterId,
-          type: "payment_captured",
-          title: "Payment received",
-          body: `Payment of ${amountFormatted} received for ${vehicleName}.`,
-          data: { paymentId: data.paymentId, bookingId: data.bookingId, amount: data.amount },
-          channel: "email",
-          emailPayload: emailData,
+        await sendEmail({
+          to: renter.email,
+          subject: emailData.subject,
+          html: emailData.html,
+          text: emailData.text,
         });
       }
     } catch (err) {
@@ -320,7 +301,7 @@ export function registerEventHandlers() {
       });
 
       // Email notification
-      if (renter) {
+      if (renter?.email) {
         const emailData = refundProcessedEmail({
           renterName: renter.name || "there",
           vehicleName,
@@ -328,14 +309,11 @@ export function registerEventHandlers() {
           bookingId: booking.id,
         });
 
-        await notificationService.send({
-          userId: booking.renterId,
-          type: "payment_refunded",
-          title: "Refund processed",
-          body: `A refund of ${amountFormatted} has been processed for ${vehicleName}.`,
-          data: { paymentId: data.paymentId, bookingId: data.bookingId, amount: data.amount },
-          channel: "email",
-          emailPayload: emailData,
+        await sendEmail({
+          to: renter.email,
+          subject: emailData.subject,
+          html: emailData.html,
+          text: emailData.text,
         });
       }
     } catch (err) {
