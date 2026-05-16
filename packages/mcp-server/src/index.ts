@@ -28,7 +28,7 @@ async function vroomFetch(path: string, options: RequestInit = {}): Promise<unkn
   const data = await response.json() as unknown;
 
   if (!response.ok) {
-    const msg = (data as any)?.message ?? (data as any)?.error ?? `HTTP ${response.status}`;
+    const msg = (data as any)?.error?.message ?? (data as any)?.message ?? `HTTP ${response.status}`;
     throw new Error(msg);
   }
 
@@ -235,8 +235,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (args.vehicleType) params.set("vehicleType", String(args.vehicleType));
         if (args.fuelType) params.set("fuelType", String(args.fuelType));
         if (args.transmission) params.set("transmission", String(args.transmission));
-        if (args.startDate) params.set("startDate", String(args.startDate));
-        if (args.endDate) params.set("endDate", String(args.endDate));
+        if (args.startDate) params.set("startDate", normalizeDate(String(args.startDate)));
+        if (args.endDate) params.set("endDate", normalizeDate(String(args.endDate)));
         if (args.maxPricePerDay) params.set("maxPrice", String(Number(args.maxPricePerDay) * 100));
         params.set("limit", String(Math.min(Number(args.limit ?? 10), 20)));
 
@@ -352,8 +352,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "get_cities": {
         const data = await vroomFetch("/api/cities");
-        const cities = data as Array<{ city: string; count: number }>;
-        const lines = cities.map((c) => `• ${c.city}: ${c.count} vehicle${c.count === 1 ? "" : "s"}`);
+        const cities = data as Array<{ city: string; vehicleCount: number }>;
+        const lines = cities.map((c) => `• ${c.city}: ${c.vehicleCount} vehicle${c.vehicleCount === 1 ? "" : "s"}`);
         return {
           content: [
             {
@@ -387,7 +387,7 @@ function paise(amount: number) {
 
 function normalizeDate(d: string): string {
   if (d.includes("T")) return d;
-  return `${d}T00:00:00.000+05:30`;
+  return `${d}T00:00:00Z`;
 }
 
 function formatVehicleList(vehicles: unknown): string {
