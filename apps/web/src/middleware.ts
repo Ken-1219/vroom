@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { getToken } from "next-auth/jwt";
+import { jwtVerify } from "jose";
 
 const redis =
   process.env.REDIS_URL && process.env.REDIS_TOKEN
@@ -44,6 +46,29 @@ const AI_PATHS = [
 
 const AUTH_PATHS = ["/api/mcp/auth", "/api/auth/"];
 
+const PUBLIC_API_PATHS = [
+  "/api/auth/",
+  "/api/mcp/auth",
+  "/api/health",
+  "/api/cities",
+  "/api/payments/webhook",
+  "/api/payouts/webhook",
+  "/api/cron/",
+];
+
+const PUBLIC_GET_PATHS = [
+  "/api/vehicles/search",
+  "/api/geofences",
+  "/api/pickup-points",
+  "/api/reviews/summary",
+  "/api/reviews",
+];
+
+const PUBLIC_GET_PATTERNS = [
+  /^\/api\/vehicles\/[^/]+$/,
+  /^\/api\/vehicles\/[^/]+\/availability$/,
+];
+
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -72,50 +97,94 @@ function isVehicleChatPath(pathname: string): boolean {
   return /^\/api\/vehicles\/[^/]+\/chat$/.test(pathname);
 }
 
+function isPublicApiRoute(pathname: string, method: string): boolean {
+  if (PUBLIC_API_PATHS.some((p) => pathname.startsWith(p))) return true;
+
+  if (method === "GET") {
+    if (PUBLIC_GET_PATHS.some((p) => pathname === p)) return true;
+    if (PUBLIC_GET_PATTERNS.some((p) => p.test(pathname))) return true;
+  }
+
+  if (method === "POST" && pathname === "/api/pricing/estimate") return true;
+
+  return false;
+}
+
+async function hasValidBearerToken(request: NextRequest): Promise<boolean> {
+  const header = request.headers.get("authorization");
+  if (!header?.startsWith("Bearer ")) return false;
+
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) return false;
+
+  try {
+    await jwtVerify(header.slice(7), new TextEncoder().encode(secret));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only rate-limit API routes
-  if (pathname.startsWith("/api/") && redis) {
-    const ip = getClientIp(request);
+  if (pathname.startsWith("/api/")) {
+    // Rate limiting
+    if (redis) {
+      const ip = getClientIp(request);
 
-    // Pick the right limiter
-    let limiter = generalLimiter;
-    if (isAiPath(pathname) || isVehicleChatPath(pathname)) {
-      limiter = aiLimiter;
-    } else if (isAuthPath(pathname)) {
-      limiter = authLimiter;
+      let limiter = generalLimiter;
+      if (isAiPath(pathname) || isVehicleChatPath(pathname)) {
+        limiter = aiLimiter;
+      } else if (isAuthPath(pathname)) {
+        limiter = authLimiter;
+      }
+
+      if (limiter) {
+        const { success, limit, remaining, reset } = await limiter.limit(ip);
+        if (!success) {
+          return new NextResponse(
+            JSON.stringify({ error: { code: "RATE_LIMITED", message: "Too many requests" } }),
+            {
+              status: 429,
+              headers: {
+                "Content-Type": "application/json",
+                "X-RateLimit-Limit": limit.toString(),
+                "X-RateLimit-Remaining": remaining.toString(),
+                "X-RateLimit-Reset": reset.toString(),
+                "Retry-After": Math.ceil((reset - Date.now()) / 1000).toString(),
+                ...SECURITY_HEADERS,
+              },
+            }
+          );
+        }
+      }
     }
 
-    if (limiter) {
-      const { success, limit, remaining, reset } = await limiter.limit(ip);
-      if (!success) {
-        return new NextResponse(
-          JSON.stringify({ error: { code: "RATE_LIMITED", message: "Too many requests" } }),
-          {
-            status: 429,
-            headers: {
-              "Content-Type": "application/json",
-              "X-RateLimit-Limit": limit.toString(),
-              "X-RateLimit-Remaining": remaining.toString(),
-              "X-RateLimit-Reset": reset.toString(),
-              "Retry-After": Math.ceil((reset - Date.now()) / 1000).toString(),
-              ...SECURITY_HEADERS,
-            },
-          }
-        );
+    // Auth gate for protected API routes
+    if (!isPublicApiRoute(pathname, request.method)) {
+      const session = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+      if (!session) {
+        const validBearer = await hasValidBearerToken(request);
+        if (!validBearer) {
+          return new NextResponse(
+            JSON.stringify({ error: { code: "UNAUTHORIZED", message: "Authentication required" } }),
+            {
+              status: 401,
+              headers: { "Content-Type": "application/json", ...SECURITY_HEADERS },
+            }
+          );
+        }
       }
     }
   }
 
   const response = NextResponse.next();
 
-  // Security headers on all responses
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(key, value);
   }
 
-  // HSTS only on production
   if (process.env.NODE_ENV === "production") {
     response.headers.set(
       "Strict-Transport-Security",
