@@ -26,7 +26,17 @@ export default async function BookingConfirmationPage({
     (p) => p.status === "captured" && p.type === "charge"
   );
 
-  const breakdown = booking.priceBreakdown as Record<string, unknown> | null;
+  const breakdown = booking.priceBreakdown as {
+    baseRate: number;
+    days: number;
+    subtotal: number;
+    platformFee: number;
+    tax: number;
+    total: number;
+    deliveryFee?: number;
+    protectionFee?: number;
+    discount?: number;
+  } | null;
   const pickupOtp = (booking as unknown as { pickupOtp?: string | null }).pickupOtp ?? null;
   const startDate = new Date(booking.startDate);
   const endDate = new Date(booking.endDate);
@@ -229,22 +239,22 @@ export default async function BookingConfirmationPage({
           </h3>
           <ol className="space-y-3">
             <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FF4D00] text-white text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-[#FF4D00] text-white text-xs font-bold flex items-center justify-center mt-0.5">1</span>
               <div>
                 <p className="text-sm font-medium text-[#1A1A1A]">Go to the pickup location on your start date</p>
                 <p className="text-xs text-[#6B6B6B] mt-0.5">{booking.pickupAddress ?? vehicle?.address ?? vehicle?.city ?? "See your booking details"}</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FF4D00] text-white text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-[#FF4D00] text-white text-xs font-bold flex items-center justify-center mt-0.5">2</span>
               <p className="text-sm font-medium text-[#1A1A1A]">Share your pickup OTP with the host</p>
             </li>
             <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FF4D00] text-white text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-[#FF4D00] text-white text-xs font-bold flex items-center justify-center mt-0.5">3</span>
               <p className="text-sm font-medium text-[#1A1A1A]">Complete the pre-trip inspection together</p>
             </li>
             <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FF4D00] text-white text-xs font-bold flex items-center justify-center mt-0.5">4</span>
+              <span className="shrink-0 w-6 h-6 rounded-full bg-[#FF4D00] text-white text-xs font-bold flex items-center justify-center mt-0.5">4</span>
               <p className="text-sm font-medium text-[#1A1A1A]">The host starts the trip — you&apos;re good to go!</p>
             </li>
           </ol>

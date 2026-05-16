@@ -774,7 +774,8 @@ export function AiChat({ userRole, hasActiveBooking, hasActiveTrip }: AiChatProp
   // ---- Speech recognition setup ----
   useEffect(() => {
     try {
-      const SR = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (SR) setHasSpeech(true);
     } catch {
@@ -783,7 +784,8 @@ export function AiChat({ userRole, hasActiveBooking, hasActiveTrip }: AiChatProp
   }, []);
 
   function createRecognition() {
-    const SR = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) return null;
     const recognition = new SR();
     recognition.continuous = false;

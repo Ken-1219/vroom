@@ -81,7 +81,8 @@ export default async function VehiclesPage({
   delete cleanParams.city;
 
   let result: {
-    vehicles: Array<Record<string, unknown>>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vehicles: Array<any>;
     total: number;
     page: number;
     limit: number;

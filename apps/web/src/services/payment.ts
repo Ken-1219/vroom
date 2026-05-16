@@ -166,7 +166,8 @@ export class PaymentService {
       .where(eq(payments.bookingId, bookingId)) as Promise<Payment[]>;
   }
 
-  async handleWebhookEvent(event: string, payload: Record<string, unknown>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async handleWebhookEvent(event: string, payload: any) {
     const entity = payload?.payment?.entity ?? payload?.refund?.entity;
     if (!entity) return;
 

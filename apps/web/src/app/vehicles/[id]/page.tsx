@@ -47,7 +47,8 @@ export default async function VehicleDetailPage({
 
   const photos = (vehicle.photos ?? []) as Array<{ url: string; position: number; isPrimary?: boolean }>;
   const features = (vehicle.features ?? []) as string[];
-  const rules = (vehicle.rules ?? {}) as Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rules = (vehicle.rules ?? {}) as Record<string, any>;
   const description = vehicle.description as string | null;
 
   return (

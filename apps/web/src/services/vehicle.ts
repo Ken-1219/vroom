@@ -205,7 +205,8 @@ export class VehicleService {
     const result = (await db
       .insert(vehicles)
       .values({
-        ...(input as Record<string, unknown>),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(input as any),
         hostId,
         latitude: String(input.latitude),
         longitude: String(input.longitude),
