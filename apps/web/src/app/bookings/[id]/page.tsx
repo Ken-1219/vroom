@@ -90,7 +90,7 @@ export default async function BookingDetailPage({
 
   const photos = vehicle ? (vehicle.photos ?? []) : [];
   const primaryPhoto = photos.find((p) => p.isPrimary) ?? photos[0] ?? null;
-  const pickupOtp = (booking as any).pickupOtp as string | null;
+  const pickupOtp = (booking as unknown as { pickupOtp?: string | null }).pickupOtp ?? null;
 
   return (
     <div className="min-h-screen bg-[#FAFAF8]">

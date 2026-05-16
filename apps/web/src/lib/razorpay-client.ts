@@ -1,6 +1,15 @@
+interface RazorpayInstance {
+  on(event: string, handler: (response: { error?: { description?: string } }) => void): void;
+  open(): void;
+}
+
+interface RazorpayConstructor {
+  new (options: Record<string, unknown>): RazorpayInstance;
+}
+
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: RazorpayConstructor;
   }
 }
 
@@ -60,7 +69,7 @@ export async function openRazorpayCheckout(
         ondismiss: () => reject(new Error("Payment cancelled by user")),
       },
     });
-    rzp.on("payment.failed", (response: any) => {
+    rzp.on("payment.failed", (response: { error?: { description?: string } }) => {
       reject(
         new Error(response.error?.description ?? "Payment failed")
       );

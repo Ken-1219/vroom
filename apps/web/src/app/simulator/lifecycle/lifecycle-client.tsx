@@ -69,9 +69,11 @@ export function LifecycleClient() {
   const clockStartRef = useRef<number>(0);
   const clockBaseRef = useRef<number>(0);
 
-  speedRef.current = speed;
-  pausedRef.current = paused;
-  elapsedRef.current = elapsedMs;
+  useEffect(() => {
+    speedRef.current = speed;
+    pausedRef.current = paused;
+    elapsedRef.current = elapsedMs;
+  });
 
   const clearAllTimers = useCallback(() => {
     if (clockRef.current) clearInterval(clockRef.current);
@@ -113,6 +115,8 @@ export function LifecycleClient() {
     }
     clockBaseRef.current = elapsedRef.current;
   }, []);
+
+  const advanceStepRef = useRef<(stepIndex: number) => void>(() => {});
 
   const advanceStep = useCallback(
     (stepIndex: number) => {
@@ -189,11 +193,15 @@ export function LifecycleClient() {
             }),
           },
         ]);
-        advanceStep(stepIndex + 1);
+        advanceStepRef.current(stepIndex + 1);
       }, duration);
     },
     [stopClock]
   );
+
+  useEffect(() => {
+    advanceStepRef.current = advanceStep;
+  }, [advanceStep]);
 
   const start = useCallback(() => {
     resetState();

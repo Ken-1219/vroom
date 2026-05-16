@@ -205,7 +205,7 @@ export class VehicleService {
     const result = (await db
       .insert(vehicles)
       .values({
-        ...(input as any),
+        ...(input as Record<string, unknown>),
         hostId,
         latitude: String(input.latitude),
         longitude: String(input.longitude),

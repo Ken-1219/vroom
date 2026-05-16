@@ -160,7 +160,9 @@ function useTypingPlaceholder(phrases: string[], speed = 50, pause = 2000) {
     }
 
     if (deleting && charIdx === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDeleting(false);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPhraseIdx((prev) => (prev + 1) % phrases.length);
     }
   }, [charIdx, deleting, phraseIdx, phrases, speed, pause]);
@@ -564,14 +566,15 @@ export function HomeAI({ totalVehicles, startingPrice }: HomeAIProps) {
   const isNearBottomRef = useRef(true);
   const coordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
-  const transportRef = useRef(new DefaultChatTransport({
+  // eslint-disable-next-line react-hooks/refs -- coordsRef.current is accessed in the body callback, not during render
+  const [transport] = useState(() => new DefaultChatTransport({
     api: "/api/chat",
     body: () => {
       const c = coordsRef.current;
       return c ? { latitude: c.latitude, longitude: c.longitude } : {};
     },
   }));
-  const { messages, sendMessage, status, setMessages } = useChat({ transport: transportRef.current });
+  const { messages, sendMessage, status, setMessages } = useChat({ transport });
 
   const isLoading = status === "submitted" || status === "streaming";
   const hasConversation = messages.length > 0;

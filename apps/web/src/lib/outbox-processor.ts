@@ -35,13 +35,11 @@ export async function processOutbox(): Promise<{ processed: number; failed: numb
 
   for (const event of pending) {
     try {
-      // Dispatch through the in-process event bus (calls registered handlers)
-      eventBus.publish(
+      await eventBus.publish(
         event.eventType as EventName,
         event.payload as EventMap[EventName]
       );
 
-      // Mark as processed
       await db
         .update(outboxEvents)
         .set({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 
 const SUGGESTIONS = [
@@ -163,7 +164,7 @@ export function TripPlannerClient() {
               >
                 Plan another trip
               </button>
-              <a
+              <Link
                 href="/vehicles"
                 className="px-4 py-2.5 text-sm font-semibold text-white bg-[#FF4D00] hover:bg-[#E64500] rounded-xl transition-colors inline-flex items-center gap-1.5"
               >
@@ -171,7 +172,7 @@ export function TripPlannerClient() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
                 </svg>
-              </a>
+              </Link>
             </div>
           )}
 

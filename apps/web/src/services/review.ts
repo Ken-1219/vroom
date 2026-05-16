@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
-import { reviews, vehicles, users, outboxEvents, type Review } from "@vroom/db/schema";
+import { reviews, vehicles, users, type Review } from "@vroom/db/schema";
 import { eq, and, desc, avg, count } from "drizzle-orm";
+import { emitEvent } from "@/lib/emit-event";
 import type { CreateReviewInput } from "@vroom/validators";
 
 const PROFANITY_LIST = [
@@ -70,12 +71,9 @@ export class ReviewService {
         .returning()) as Review[];
       created = flagged[0]!;
 
-      await db.insert(outboxEvents).values({
-        eventType: "review.auto_flagged",
-        payload: {
-          reviewId: created.id,
-          reason: flagReason,
-        },
+      await emitEvent("review.auto_flagged", {
+        reviewId: created.id,
+        reason: flagReason,
       });
     }
 
@@ -83,14 +81,11 @@ export class ReviewService {
       await this.updateVehicleRating(input.vehicleId);
     }
 
-    await db.insert(outboxEvents).values({
-      eventType: "review.created",
-      payload: {
-        reviewId: created.id,
-        bookingId: input.bookingId,
-        vehicleId: input.vehicleId ?? null,
-        rating: input.rating,
-      },
+    await emitEvent("review.created", {
+      reviewId: created.id,
+      bookingId: input.bookingId,
+      vehicleId: input.vehicleId ?? null,
+      rating: input.rating,
     });
 
     return created;
@@ -150,10 +145,7 @@ export class ReviewService {
       throw new Error("Review not found");
     }
 
-    await db.insert(outboxEvents).values({
-      eventType: "review.flagged",
-      payload: { reviewId, reason },
-    });
+    await emitEvent("review.flagged", { reviewId, reason });
 
     return result[0]!;
   }
@@ -175,10 +167,7 @@ export class ReviewService {
       await this.updateVehicleRating(hidden.vehicleId);
     }
 
-    await db.insert(outboxEvents).values({
-      eventType: "review.hidden",
-      payload: { reviewId, reason },
-    });
+    await emitEvent("review.hidden", { reviewId, reason });
 
     return hidden;
   }
@@ -199,10 +188,7 @@ export class ReviewService {
       await this.updateVehicleRating(published.vehicleId);
     }
 
-    await db.insert(outboxEvents).values({
-      eventType: "review.published",
-      payload: { reviewId },
-    });
+    await emitEvent("review.published", { reviewId });
 
     return published;
   }

@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
-import { bookings, bookingEvents, outboxEvents, type Booking } from "@vroom/db/schema";
+import { bookings, bookingEvents, type Booking } from "@vroom/db/schema";
 import { eq, and, desc, sql, lt, gte, inArray } from "drizzle-orm";
 import { neon } from "@neondatabase/serverless";
 import { pricingService } from "@/services/pricing";
+import { emitEvent } from "@/lib/emit-event";
 import type { CreateBookingInput } from "@vroom/validators";
 
 export class BookingService {
@@ -100,14 +101,11 @@ export class BookingService {
       actorType: "user",
     });
 
-    await db.insert(outboxEvents).values({
-      eventType: "booking.created",
-      payload: {
-        bookingId: created.id,
-        vehicleId: input.vehicleId,
-        renterId,
-        hostId,
-      },
+    await emitEvent("booking.created", {
+      bookingId: created.id,
+      vehicleId: input.vehicleId,
+      renterId,
+      hostId,
     });
 
     return created;
@@ -178,16 +176,13 @@ export class BookingService {
       hoursUntilStart
     );
 
-    await db.insert(outboxEvents).values({
-      eventType: "booking.cancelled",
-      payload: {
-        bookingId,
-        vehicleId: booking.vehicleId,
-        renterId: booking.renterId,
-        hostId: booking.hostId,
-        reason,
-        refundAmount,
-      },
+    await emitEvent("booking.cancelled", {
+      bookingId,
+      vehicleId: booking.vehicleId,
+      renterId: booking.renterId,
+      hostId: booking.hostId,
+      reason,
+      refundAmount,
     });
 
     return updated[0]!;
@@ -226,14 +221,11 @@ export class BookingService {
       actorType: "user",
     });
 
-    await db.insert(outboxEvents).values({
-      eventType: "booking.confirmed",
-      payload: {
-        bookingId,
-        vehicleId: booking.vehicleId,
-        renterId: booking.renterId,
-        hostId: booking.hostId,
-      },
+    await emitEvent("booking.confirmed", {
+      bookingId,
+      vehicleId: booking.vehicleId,
+      renterId: booking.renterId,
+      hostId: booking.hostId,
     });
 
     return updated[0]!;
@@ -275,16 +267,13 @@ export class BookingService {
       actorType: "user",
     });
 
-    await db.insert(outboxEvents).values({
-      eventType: "booking.cancelled",
-      payload: {
-        bookingId,
-        vehicleId: booking.vehicleId,
-        renterId: booking.renterId,
-        hostId: booking.hostId,
-        reason,
-        refundAmount: booking.totalAmount,
-      },
+    await emitEvent("booking.cancelled", {
+      bookingId,
+      vehicleId: booking.vehicleId,
+      renterId: booking.renterId,
+      hostId: booking.hostId,
+      reason,
+      refundAmount: booking.totalAmount,
     });
 
     return updated[0]!;

@@ -63,7 +63,7 @@ export function NLSearchBar() {
     }
   };
 
-  const exampleIndex = Math.floor(Date.now() / 10000) % EXAMPLES.length;
+  const [exampleIndex] = useState(() => Math.floor(Date.now() / 10000) % EXAMPLES.length);
 
   return (
     <div className="mb-4">

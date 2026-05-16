@@ -52,6 +52,7 @@ export function VehiclesContent({
 
   useEffect(() => {
     if (view !== "map" || total <= vehicles.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (view === "map" && total <= vehicles.length) setMapVehicles(vehicles);
       return;
     }
@@ -72,7 +73,9 @@ export function VehiclesContent({
 
   useEffect(() => {
     if (!cityName) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPickupPoints([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGeofences([]);
       return;
     }

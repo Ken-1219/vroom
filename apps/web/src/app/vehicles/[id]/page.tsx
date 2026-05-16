@@ -47,7 +47,7 @@ export default async function VehicleDetailPage({
 
   const photos = (vehicle.photos ?? []) as Array<{ url: string; position: number; isPrimary?: boolean }>;
   const features = (vehicle.features ?? []) as string[];
-  const rules = (vehicle.rules ?? {}) as Record<string, any>;
+  const rules = (vehicle.rules ?? {}) as Record<string, unknown>;
   const description = vehicle.description as string | null;
 
   return (

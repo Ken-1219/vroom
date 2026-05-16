@@ -34,6 +34,7 @@ export function PickupPointSelector({
 
   useEffect(() => {
     if (!city) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/pickup-points?city=${encodeURIComponent(city)}`)
       .then((r) => (r.ok ? r.json() : []))

@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    (allowedFields as any).updatedAt = new Date();
+    allowedFields.updatedAt = new Date();
 
     const updated = (await db
       .update(users)

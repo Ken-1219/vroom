@@ -81,7 +81,7 @@ export default async function VehiclesPage({
   delete cleanParams.city;
 
   let result: {
-    vehicles: Array<any>;
+    vehicles: Array<Record<string, unknown>>;
     total: number;
     page: number;
     limit: number;

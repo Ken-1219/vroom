@@ -22,9 +22,11 @@ export function VehicleChat({ vehicleId }: { vehicleId: string }) {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const assistantTextRef = useRef("");
 
   useEffect(() => {
     if (open && messages.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages([
         {
           role: "assistant",
@@ -61,17 +63,17 @@ export function VehicleChat({ vehicleId }: { vehicleId: string }) {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let assistantText = "";
+      assistantTextRef.current = "";
 
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        assistantText += decoder.decode(value, { stream: true });
+        assistantTextRef.current += decoder.decode(value, { stream: true });
         setMessages((prev) => [
           ...prev.slice(0, -1),
-          { role: "assistant", content: assistantText },
+          { role: "assistant", content: assistantTextRef.current },
         ]);
       }
     } catch {

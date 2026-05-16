@@ -26,8 +26,8 @@ export default async function BookingConfirmationPage({
     (p) => p.status === "captured" && p.type === "charge"
   );
 
-  const breakdown = booking.priceBreakdown as any;
-  const pickupOtp = (booking as any).pickupOtp as string | null;
+  const breakdown = booking.priceBreakdown as Record<string, unknown> | null;
+  const pickupOtp = (booking as unknown as { pickupOtp?: string | null }).pickupOtp ?? null;
   const startDate = new Date(booking.startDate);
   const endDate = new Date(booking.endDate);
   const days = Math.ceil(
@@ -83,9 +83,9 @@ export default async function BookingConfirmationPage({
           {vehicle && (
             <div className="p-6 border-b border-[#F0EFEC]">
               <div className="flex items-center gap-4">
-                {(vehicle.photos as any)?.[0]?.url && (
+                {(vehicle.photos as Array<{ url: string }>)?.[0]?.url && (
                   <img
-                    src={(vehicle.photos as any)[0].url}
+                    src={(vehicle.photos as Array<{ url: string }>)[0].url}
                     alt={`${vehicle.make} ${vehicle.model}`}
                     className="w-20 h-14 object-cover rounded-lg"
                   />

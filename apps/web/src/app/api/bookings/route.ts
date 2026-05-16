@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         email: currentUser.email,
         name: currentUser.name ?? currentUser.email,
         role: (currentUser.role ?? "renter") as "renter" | "host" | "admin",
-        avatarUrl: (currentUser as any).image ?? null,
+        avatarUrl: (currentUser as unknown as { image?: string | null }).image ?? null,
         emailVerified: true,
       }).onConflictDoNothing();
     }

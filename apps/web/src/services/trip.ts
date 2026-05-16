@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
-import { trips, tripLocations, bookings, outboxEvents, type Trip, type TripLocation } from "@vroom/db/schema";
+import { trips, tripLocations, bookings, type Trip, type TripLocation } from "@vroom/db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { emitEvent } from "@/lib/emit-event";
 import type { StartTripInput, EndTripInput, TripLocationInput } from "@vroom/validators";
 
 export class TripService {
@@ -45,12 +46,9 @@ export class TripService {
 
     const created = trip[0]!;
 
-    await db.insert(outboxEvents).values({
-      eventType: "trip.started",
-      payload: {
-        tripId: created.id,
-        bookingId: input.bookingId,
-      },
+    await emitEvent("trip.started", {
+      tripId: created.id,
+      bookingId: input.bookingId,
     });
 
     return created;
@@ -89,12 +87,9 @@ export class TripService {
       })
       .where(eq(bookings.id, trip.bookingId));
 
-    await db.insert(outboxEvents).values({
-      eventType: "trip.completed",
-      payload: {
-        tripId,
-        bookingId: trip.bookingId,
-      },
+    await emitEvent("trip.completed", {
+      tripId,
+      bookingId: trip.bookingId,
     });
 
     return updated[0]!;

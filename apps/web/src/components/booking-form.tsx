@@ -102,7 +102,7 @@ export function BookingForm({
   vehicleLongitude,
 }: BookingFormProps) {
   const today = new Date().toISOString().split("T")[0]!;
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0]!;
+  const tomorrow = new Date(new Date(today).getTime() + 86400000).toISOString().split("T")[0]!;
 
   const { data: session } = useSession();
   const { toast } = useToast();
@@ -166,6 +166,7 @@ export function BookingForm({
 
   useEffect(() => {
     if (!startDate || !endDate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBreakdown(null);
       return;
     }
@@ -173,6 +174,7 @@ export function BookingForm({
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (end <= start) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBreakdown(null);
       return;
     }
@@ -206,16 +208,19 @@ export function BookingForm({
   // Availability check — runs whenever dates change
   useEffect(() => {
     if (!startDate || !endDate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAvailability(null);
       return;
     }
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (end <= start) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAvailability(null);
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAvailability("checking");
     const controller = new AbortController();
     const params = new URLSearchParams({

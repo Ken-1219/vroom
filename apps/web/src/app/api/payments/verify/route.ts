@@ -5,8 +5,9 @@ import { paymentService } from "@/services/payment";
 import { verifyPaymentSchema } from "@vroom/validators";
 import { ApiError, errorResponse } from "@/lib/api-error";
 import { db } from "@/lib/db";
-import { bookings, bookingEvents, outboxEvents } from "@vroom/db/schema";
+import { bookings, bookingEvents } from "@vroom/db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { emitEvent } from "@/lib/emit-event";
 import { resolveUserId } from "@/lib/resolve-user-id";
 
 export async function POST(request: NextRequest) {
@@ -74,14 +75,11 @@ export async function POST(request: NextRequest) {
         actorType: "user",
       });
 
-      await db.insert(outboxEvents).values({
-        eventType: "booking.confirmed",
-        payload: {
-          bookingId,
-          vehicleId: booking.vehicleId,
-          renterId: booking.renterId,
-          hostId: booking.hostId,
-        },
+      await emitEvent("booking.confirmed", {
+        bookingId,
+        vehicleId: booking.vehicleId,
+        renterId: booking.renterId,
+        hostId: booking.hostId,
       });
     }
 

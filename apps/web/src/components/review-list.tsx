@@ -26,6 +26,7 @@ export function ReviewList({ vehicleId }: ReviewListProps) {
   const limit = 10;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/reviews?vehicleId=${vehicleId}&limit=${limit}&offset=${offset}`)
       .then((r) => (r.ok ? r.json() : null))

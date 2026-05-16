@@ -756,11 +756,11 @@ export function AiChat({ userRole, hasActiveBooking, hasActiveTrip }: AiChatProp
   const recognitionRef = useRef<ReturnType<typeof createRecognition> | null>(null);
   const isNearBottomRef = useRef(true);
 
-  // ---- Chat transport (stable ref) ----
-  const transportRef = useRef(new DefaultChatTransport({ api: "/api/chat" }));
+  // ---- Chat transport (stable instance) ----
+  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
 
   const { messages, sendMessage, status, error, setMessages } = useChat({
-    transport: transportRef.current,
+    transport,
   });
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -774,7 +774,8 @@ export function AiChat({ userRole, hasActiveBooking, hasActiveTrip }: AiChatProp
   // ---- Speech recognition setup ----
   useEffect(() => {
     try {
-      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SR = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (SR) setHasSpeech(true);
     } catch {
       // not supported
@@ -782,7 +783,7 @@ export function AiChat({ userRole, hasActiveBooking, hasActiveTrip }: AiChatProp
   }, []);
 
   function createRecognition() {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SR = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
     if (!SR) return null;
     const recognition = new SR();
     recognition.continuous = false;
@@ -802,7 +803,7 @@ export function AiChat({ userRole, hasActiveBooking, hasActiveTrip }: AiChatProp
       const recognition = createRecognition();
       if (!recognition) return;
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: { results?: { [key: number]: { [key: number]: { transcript?: string } } } }) => {
         const transcript = event.results?.[0]?.[0]?.transcript ?? "";
         if (transcript) {
           setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
@@ -827,7 +828,7 @@ export function AiChat({ userRole, hasActiveBooking, hasActiveTrip }: AiChatProp
       if (stored) {
         const parsed = JSON.parse(stored) as ChatMessage[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed as any);
+          setMessages(parsed as Parameters<typeof setMessages>[0]);
         }
       }
     } catch {
@@ -913,6 +914,7 @@ export function AiChat({ userRole, hasActiveBooking, hasActiveTrip }: AiChatProp
       .map((m) => m.id)
       .filter((id) => !animatedIds.has(id));
     if (newIds.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAnimatedIds((prev) => {
         const next = new Set(prev);
         newIds.forEach((id) => next.add(id));

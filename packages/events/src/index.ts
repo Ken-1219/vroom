@@ -1,5 +1,3 @@
-import { EventEmitter } from "events";
-
 export type EventMap = {
   "booking.created": { bookingId: string; vehicleId: string; renterId: string; hostId: string };
   "booking.confirmed": { bookingId: string; vehicleId: string; renterId: string; hostId: string };
@@ -38,6 +36,10 @@ export type EventMap = {
     vehicleId: string | null;
     rating: number;
   };
+  "review.auto_flagged": { reviewId: string; reason: string };
+  "review.flagged": { reviewId: string; reason: string };
+  "review.hidden": { reviewId: string; reason: string };
+  "review.published": { reviewId: string };
 
   "pricing.demand_updated": { h3Index: string; demandScore: number };
 
@@ -53,30 +55,37 @@ export type EventMap = {
 type EventName = keyof EventMap;
 
 class TypedEventBus {
-  private emitter = new EventEmitter();
+  private handlers = new Map<string, ((data: any) => Promise<void>)[]>();
 
-  constructor() {
-    this.emitter.setMaxListeners(50);
-  }
-
-  /** Dispatch an event locally (used by the outbox processor to invoke registered handlers). */
-  publish<E extends EventName>(event: E, data: EventMap[E]): void {
-    this.emitter.emit(event, data);
+  async publish<E extends EventName>(event: E, data: EventMap[E]): Promise<void> {
+    const fns = this.handlers.get(event) ?? [];
+    if (fns.length === 0) return;
+    const results = await Promise.allSettled(fns.map(fn => fn(data)));
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected"
+    );
+    if (failures.length > 0) {
+      throw new AggregateError(
+        failures.map(f => f.reason),
+        `${failures.length} handler(s) failed for event "${event}"`
+      );
+    }
   }
 
   subscribe<E extends EventName>(
     event: E,
     handler: (data: EventMap[E]) => void | Promise<void>
   ): () => void {
-    const wrappedHandler = async (data: EventMap[E]) => {
-      try {
-        await handler(data);
-      } catch (error) {
-        console.error(`Event handler error for ${event}:`, error);
-      }
+    const asyncHandler = async (data: EventMap[E]) => {
+      await handler(data);
     };
-    this.emitter.on(event, wrappedHandler);
-    return () => this.emitter.off(event, wrappedHandler);
+    const fns = this.handlers.get(event) ?? [];
+    fns.push(asyncHandler as (data: any) => Promise<void>);
+    this.handlers.set(event, fns);
+    return () => {
+      const current = this.handlers.get(event) ?? [];
+      this.handlers.set(event, current.filter(f => f !== asyncHandler));
+    };
   }
 }
 

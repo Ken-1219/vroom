@@ -7,6 +7,7 @@ import * as schema from "@vroom/db/schema";
 // For Node.js environments (local dev, tests), we need the ws polyfill
 if (typeof globalThis.WebSocket === "undefined") {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ws = require("ws");
     neonConfig.webSocketConstructor = ws;
   } catch {
@@ -36,12 +37,12 @@ function getWsDb() {
 
 export const db = new Proxy({} as ReturnType<typeof drizzleHttp<typeof schema>>, {
   get(_, prop) {
-    return (getHttpDb() as any)[prop];
+    return (getHttpDb() as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
 
 export const wsDb = new Proxy({} as ReturnType<typeof drizzleWs<typeof schema>>, {
   get(_, prop) {
-    return (getWsDb() as any)[prop];
+    return (getWsDb() as unknown as Record<string | symbol, unknown>)[prop];
   },
 });

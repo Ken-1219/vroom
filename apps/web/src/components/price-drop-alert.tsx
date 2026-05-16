@@ -15,6 +15,7 @@ export function PriceDropAlert({ vehicleId, vehicleName }: PriceDropAlertProps) 
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!session?.user) { setChecked(true); return; }
     fetch(`/api/alerts/price-drop?vehicleId=${vehicleId}`)
       .then((r) => (r.ok ? r.json() : { subscribed: false }))

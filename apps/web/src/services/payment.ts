@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
-import { payments, bookings, bookingEvents, outboxEvents, type Payment } from "@vroom/db/schema";
+import { payments, bookings, bookingEvents, type Payment } from "@vroom/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getRazorpay, verifyPaymentSignature } from "@/lib/razorpay";
+import { emitEvent } from "@/lib/emit-event";
 
 export class PaymentService {
   async createOrder(
@@ -56,7 +57,7 @@ export class PaymentService {
     const existing = await this.getByBookingId(bookingId);
     const alreadyCaptured = existing.find(
       (p) => p.status === "captured" && p.type === "charge" &&
-             (p.metadata as any)?.paymentId === razorpayPaymentId
+             (p.metadata as Record<string, unknown> | null)?.paymentId === razorpayPaymentId
     );
     if (alreadyCaptured) return alreadyCaptured;
 
@@ -101,13 +102,10 @@ export class PaymentService {
 
     const payment = updated[0]!;
 
-    await db.insert(outboxEvents).values({
-      eventType: "payment.captured",
-      payload: {
-        paymentId: payment.id,
-        bookingId: payment.bookingId,
-        amount: payment.amount,
-      },
+    await emitEvent("payment.captured", {
+      paymentId: payment.id,
+      bookingId: payment.bookingId,
+      amount: payment.amount,
     });
 
     return payment;
@@ -123,7 +121,7 @@ export class PaymentService {
 
     const razorpay = getRazorpay();
     const paymentId =
-      (captured.metadata as any)?.paymentId ?? captured.gatewayReference;
+      (captured.metadata as Record<string, unknown> | null)?.paymentId as string ?? captured.gatewayReference;
 
     const refund = await razorpay.payments.refund(paymentId, {
       amount,
@@ -152,13 +150,10 @@ export class PaymentService {
       })
       .returning()) as Payment[];
 
-    await db.insert(outboxEvents).values({
-      eventType: "payment.refunded",
-      payload: {
-        paymentId: result[0]!.id,
-        bookingId,
-        amount,
-      },
+    await emitEvent("payment.refunded", {
+      paymentId: result[0]!.id,
+      bookingId,
+      amount,
     });
 
     return result[0]!;
@@ -171,7 +166,7 @@ export class PaymentService {
       .where(eq(payments.bookingId, bookingId)) as Promise<Payment[]>;
   }
 
-  async handleWebhookEvent(event: string, payload: any) {
+  async handleWebhookEvent(event: string, payload: Record<string, unknown>) {
     const entity = payload?.payment?.entity ?? payload?.refund?.entity;
     if (!entity) return;
 
@@ -222,14 +217,11 @@ export class PaymentService {
               actorType: "user",
             });
 
-            await db.insert(outboxEvents).values({
-              eventType: "booking.confirmed",
-              payload: {
-                bookingId: payment.bookingId,
-                vehicleId: booking.vehicleId,
-                renterId: booking.renterId,
-                hostId: booking.hostId,
-              },
+            await emitEvent("booking.confirmed", {
+              bookingId: payment.bookingId,
+              vehicleId: booking.vehicleId,
+              renterId: booking.renterId,
+              hostId: booking.hostId,
             });
           }
         }

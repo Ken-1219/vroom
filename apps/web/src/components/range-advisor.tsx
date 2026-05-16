@@ -87,7 +87,7 @@ export function RangeAdvisor({ vehicleName, fuelType, defaultFrom = "Bangalore" 
               <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
-              <p className="text-xs text-emerald-700 font-medium">Electric vehicle — we'll check charging stop requirements</p>
+              <p className="text-xs text-emerald-700 font-medium">Electric vehicle — we&apos;ll check charging stop requirements</p>
             </div>
           )}
 

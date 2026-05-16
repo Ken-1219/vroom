@@ -940,7 +940,8 @@ export function CommandBar() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const coordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
-  const transportRef = useRef(new DefaultChatTransport({
+  // eslint-disable-next-line react-hooks/refs -- coordsRef.current is accessed in the body callback, not during render
+  const [transport] = useState(() => new DefaultChatTransport({
     api: "/api/chat",
     body: () => {
       const c = coordsRef.current;
@@ -949,7 +950,7 @@ export function CommandBar() {
   }));
 
   const { messages, sendMessage, status, setMessages } = useChat({
-    transport: transportRef.current,
+    transport,
   });
 
   const isLoading = status === "submitted" || status === "streaming";

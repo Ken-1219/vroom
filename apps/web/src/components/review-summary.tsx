@@ -15,6 +15,7 @@ export function ReviewSummary({ vehicleId, totalReviews }: ReviewSummaryProps) {
   useEffect(() => {
     if (totalReviews < 3) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/reviews/summary?vehicleId=${vehicleId}`)
       .then((r) => (r.ok ? r.json() : null))

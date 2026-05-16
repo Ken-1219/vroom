@@ -63,8 +63,9 @@ export function NotificationPanel({ onClose, onCountChange }: NotificationPanelP
     return null;
   }
 
+  const [now] = useState(() => Date.now());
   function timeAgo(dateStr: string): string {
-    const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    const seconds = Math.floor((now - new Date(dateStr).getTime()) / 1000);
     if (seconds < 60) return "just now";
     const mins = Math.floor(seconds / 60);
     if (mins < 60) return `${mins}m ago`;
