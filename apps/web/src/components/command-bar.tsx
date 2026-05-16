@@ -949,11 +949,12 @@ export function CommandBar() {
     },
   }));
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, status, setMessages, error } = useChat({
     transport,
   });
 
   const isLoading = status === "submitted" || status === "streaming";
+  const isAuthError = status === "error" && error?.message?.includes("Unauthorized");
 
   // ---- Restore chat history from localStorage ----
   useEffect(() => {
@@ -1350,6 +1351,24 @@ export function CommandBar() {
                     </div>
                   );
                 })}
+
+                {/* Auth error */}
+                {isAuthError && (
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FAFAF8] border border-[#E8E6E1]">
+                    <div className="w-8 h-8 rounded-full bg-[#FFF1EB] flex items-center justify-center flex-shrink-0">
+                      <svg className="w-4 h-4 text-[#FF4D00]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[#0D0D0D]">Sign in to use Vroom AI</p>
+                      <p className="text-xs text-[#999] mt-0.5">Create a free account to search cars, manage bookings, and more with AI.</p>
+                      <Link href="/login" className="inline-block mt-2 text-xs font-semibold text-[#FF4D00] hover:text-[#E64500] transition-colors">
+                        Sign in →
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 {/* Streaming typing indicator (when no tool is active) */}
                 {isLoading && !activeLoadingTool && messages.length > 0 && (

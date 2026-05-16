@@ -574,9 +574,10 @@ export function HomeAI({ totalVehicles, startingPrice }: HomeAIProps) {
       return c ? { latitude: c.latitude, longitude: c.longitude } : {};
     },
   }));
-  const { messages, sendMessage, status, setMessages } = useChat({ transport });
+  const { messages, sendMessage, status, setMessages, error } = useChat({ transport });
 
   const isLoading = status === "submitted" || status === "streaming";
+  const isAuthError = status === "error" && error?.message?.includes("Unauthorized");
   const hasConversation = messages.length > 0;
 
   const typingPlaceholder = useTypingPlaceholder(TYPING_PHRASES, 45, 2200);
@@ -895,6 +896,23 @@ export function HomeAI({ totalVehicles, startingPrice }: HomeAIProps) {
               className="space-y-5 max-h-[55vh] overflow-y-auto pr-2 scrollbar-thin"
             >
               {messages.map((msg) => renderMessage(msg as unknown as ChatMessage))}
+
+              {isAuthError && (
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                  <div className="w-8 h-8 rounded-full bg-[#FF4D00]/20 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4 h-4 text-[#FF4D00]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white/80">Sign in to use Vroom AI</p>
+                    <p className="text-xs text-white/40 mt-0.5">Create a free account to search cars, manage bookings, and more with AI.</p>
+                    <Link href="/login" className="inline-block mt-2 text-xs font-semibold text-[#FF4D00] hover:text-[#FF6B2C] transition-colors">
+                      Sign in →
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               {isLoading && !activeLoadingTool && messages.length > 0 && (
                 <div className="flex items-center gap-2">

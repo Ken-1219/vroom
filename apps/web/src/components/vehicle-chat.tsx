@@ -59,6 +59,15 @@ export function VehicleChat({ vehicleId }: { vehicleId: string }) {
         body: JSON.stringify({ messages: newMessages }),
       });
 
+      if (res.status === 401) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Please [sign in](/login) to chat about this car." },
+        ]);
+        setLoading(false);
+        return;
+      }
+
       if (!res.ok || !res.body) throw new Error("Failed");
 
       const reader = res.body.getReader();

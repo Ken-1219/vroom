@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { getCachedAiResponse, setCachedAiResponse, makeCacheKey } from "@/lib/ai-cache";
+import { auth } from "@/lib/auth";
 
 const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -17,7 +18,9 @@ const EV_RANGES: Record<string, number> = {
   default: 350,
 };
 
-function getHaversineKm(from: string, to: string): number | null {
+const ROAD_FACTOR = 1.35;
+
+function getRoadDistanceKm(from: string, to: string): number | null {
   const CITIES: Record<string, [number, number]> = {
     bangalore: [12.9716, 77.5946], bengaluru: [12.9716, 77.5946],
     mumbai: [19.076, 72.8777], delhi: [28.6139, 77.209],
@@ -30,6 +33,18 @@ function getHaversineKm(from: string, to: string): number | null {
     ahmedabad: [23.0225, 72.5714], kochi: [9.9312, 76.2673],
     chandigarh: [30.7333, 76.7794], manali: [32.2396, 77.1887],
     shimla: [31.1048, 77.1734], pondicherry: [11.9416, 79.8083],
+    udaipur: [24.5854, 73.7125], jodhpur: [26.2389, 73.0243],
+    agra: [27.1767, 78.0081], varanasi: [25.3176, 82.9739],
+    amritsar: [31.634, 74.8723], rishikesh: [30.0869, 78.2676],
+    dehradun: [30.3165, 78.0322], darjeeling: [27.041, 88.2663],
+    gangtok: [27.3389, 88.6065], shillong: [25.5788, 91.8933],
+    munnar: [10.0889, 77.0595], alleppey: [9.4981, 76.3388],
+    trivandrum: [8.5241, 76.9366], madurai: [9.9252, 78.1198],
+    coimbatore: [11.0168, 76.9558], vizag: [17.6868, 83.2185],
+    visakhapatnam: [17.6868, 83.2185], indore: [22.7196, 75.8577],
+    bhopal: [23.2599, 77.4126], nagpur: [21.1458, 79.0882],
+    surat: [21.1702, 72.8311], vadodara: [22.3072, 73.1812],
+    leh: [34.1526, 77.5771], srinagar: [34.0837, 74.7973],
   };
 
   const fromCoords = CITIES[from.toLowerCase().trim()];
@@ -44,17 +59,23 @@ function getHaversineKm(from: string, to: string): number | null {
     Math.cos((fromCoords[0] * Math.PI) / 180) *
       Math.cos((toCoords[0] * Math.PI) / 180) *
       Math.sin(dLon / 2) ** 2;
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  const haversine = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(haversine * ROAD_FACTOR);
 }
 
 export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { from, to, vehicleName, fuelType } = await request.json();
 
   if (!from || !to) {
     return NextResponse.json({ error: "from and to are required" }, { status: 400 });
   }
 
-  const distanceKm = getHaversineKm(from, to);
+  const distanceKm = getRoadDistanceKm(from, to);
   const isEV = fuelType === "electric" || fuelType === "ev";
 
   const modelKey = vehicleName?.toLowerCase() ?? "default";
@@ -78,7 +99,7 @@ export async function POST(request: NextRequest) {
       prompt: `You are a helpful Indian road trip advisor for Vroom car rentals.
 
 Trip: ${from} → ${to}
-${distanceKm ? `Estimated distance: ~${distanceKm} km` : "Distance unknown"}
+${distanceKm ? `Estimated road distance: ~${distanceKm} km` : "Distance unknown — estimate based on your knowledge of Indian roads"}
 Vehicle: ${vehicleName ?? "Unknown"} (${fuelType ?? "petrol"})
 ${isEV ? `EV range on full charge: ~${evRange} km` : ""}
 

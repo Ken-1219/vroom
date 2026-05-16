@@ -35,6 +35,11 @@ export function NLSearchBar() {
         body: JSON.stringify({ query: trimmed }),
       });
 
+      if (res.status === 401) {
+        setError("Please sign in to use AI search.");
+        setLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error("Search failed");
 
       const data = await res.json();

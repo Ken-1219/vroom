@@ -3,8 +3,14 @@ import { groq } from "@ai-sdk/groq";
 import { streamText } from "ai";
 import { vehicleService } from "@/services/vehicle";
 import { formatPrice } from "@/lib/format";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   try {
     const { prompt, city } = await request.json();
     if (!prompt || typeof prompt !== "string") {

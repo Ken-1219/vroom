@@ -87,10 +87,14 @@ Guidelines:
 
 export async function POST(req: Request) {
   const session = await auth();
+  if (!session?.user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const { messages, latitude: userLat, longitude: userLng } = await req.json();
 
   let userContext = "";
-  if (session?.user?.id) {
+  if (session.user.id) {
     try {
       userContext = await getUserContext(session.user.id, session.user.role ?? "renter");
     } catch {

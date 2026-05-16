@@ -3,6 +3,7 @@ import { groq } from "@ai-sdk/groq";
 import { streamText } from "ai";
 import { vehicleService } from "@/services/vehicle";
 import { formatPrice } from "@/lib/format";
+import { auth } from "@/lib/auth";
 
 function estimatedMileage(tripCount: number): string {
   const km = tripCount * 145; // avg ~145km per trip
@@ -23,6 +24,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await auth();
+  if (!session?.user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const { id } = await params;
 
   try {

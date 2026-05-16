@@ -7,6 +7,7 @@ export const metadata = {
 };
 
 export default function TripPlannerPage() {
+
   return (
     <div className="min-h-screen bg-[#FAFAF8]">
       <Nav variant="light" />

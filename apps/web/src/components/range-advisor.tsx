@@ -34,6 +34,11 @@ export function RangeAdvisor({ vehicleName, fuelType, defaultFrom = "Bangalore" 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ from, to, vehicleName, fuelType }),
       });
+      if (res.status === 401) {
+        setError("Please sign in to use the Range Advisor.");
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
       setResult(data);
@@ -145,7 +150,7 @@ export function RangeAdvisor({ vehicleName, fuelType, defaultFrom = "Bangalore" 
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                     </svg>
                     <span className="font-semibold">~{result.distanceKm} km</span>
-                    <span className="text-[#999]">straight-line distance</span>
+                    <span className="text-[#999]">approx. road distance</span>
                   </div>
                   {result.isEV && result.evRange && (
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${

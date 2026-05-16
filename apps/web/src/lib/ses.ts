@@ -1,7 +1,15 @@
 import { Resend } from "resend";
 import { logger } from "@/lib/logger";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend: Resend | null = null;
+
+function getResend(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "Vroom <onboarding@resend.dev>";
 
@@ -11,8 +19,14 @@ export async function sendEmail(input: {
   html: string;
   text?: string;
 }): Promise<void> {
+  const client = getResend();
+  if (!client) {
+    logger.warn("RESEND_API_KEY not set — skipping email", { to: input.to, subject: input.subject });
+    return;
+  }
+
   try {
-    await resend.emails.send({
+    await client.emails.send({
       from: FROM_EMAIL,
       to: input.to,
       subject: input.subject,

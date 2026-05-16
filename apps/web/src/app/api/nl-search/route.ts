@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import { getCachedAiResponse, setCachedAiResponse, makeCacheKey } from "@/lib/ai-cache";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { query } = await request.json();
     if (!query || typeof query !== "string") {
