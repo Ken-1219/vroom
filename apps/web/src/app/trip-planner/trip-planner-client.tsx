@@ -7,6 +7,12 @@ import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import { formatPrice } from "@/lib/format";
 
+interface VehiclePhoto {
+  url: string;
+  position: number;
+  isPrimary?: boolean;
+}
+
 interface TripVehicle {
   id: string;
   make: string;
@@ -19,7 +25,7 @@ interface TripVehicle {
   currency: string;
   ratingAvg: string | null;
   reviewCount: number;
-  images: string[];
+  photos: VehiclePhoto[];
   city: string;
   seats: number;
 }
@@ -236,9 +242,9 @@ export function TripPlannerClient() {
                     className="group bg-white border border-[#E8E6E1] rounded-xl overflow-hidden hover:border-[#FF4D00]/30 hover:shadow-md transition-all cursor-pointer"
                   >
                     <div className="relative h-32 bg-[#F5F5F0]">
-                      {v.images?.[0] ? (
+                      {v.photos?.length > 0 ? (
                         <Image
-                          src={v.images[0]}
+                          src={(v.photos.find(p => p.isPrimary) ?? v.photos[0])!.url}
                           alt={`${v.make} ${v.model}`}
                           fill
                           className="object-cover"
